@@ -1,7 +1,48 @@
 import { useEffect, useState } from "react";
 
 import type { EtapaCatalogo, RespuestaCatalogo } from "../catalogo/catalogo.types";
-import type { EtapaPipeline, ModoPipeline, ValorParametro } from "./pipeline.types";
+import type { EtapaPipeline, ModoPipeline, Pipeline, ValorParametro } from "./pipeline.types";
+
+const CLAVE_BORRADOR_LIBRE = "ocr.pipeline.modo-libre.v1";
+const CLAVE_PIPELINE_FIJO = "ocr.pipeline.modo-fijo.v1";
+const CLAVE_MODO = "ocr.pipeline.modo-activo.v1";
+
+function cargarEtapas(clave: string): EtapaPipeline[] {
+  try {
+    const guardado = localStorage.getItem(clave);
+    if (!guardado) return [];
+
+    const valor: unknown = JSON.parse(guardado);
+    if (!Array.isArray(valor)) return [];
+
+    return valor.filter(
+      (etapa): etapa is EtapaPipeline =>
+        typeof etapa === "object" &&
+        etapa !== null &&
+        typeof etapa.tipo === "string" &&
+        typeof etapa.activa === "boolean" &&
+        typeof etapa.parametros === "object" &&
+        etapa.parametros !== null,
+    );
+  } catch {
+    return [];
+  }
+}
+
+function cargarModo(): ModoPipeline {
+  try {
+    return localStorage.getItem(CLAVE_MODO) === "libre" ? "libre" : "fijo";
+  } catch {
+    return "fijo";
+  }
+}
+
+function copiarEtapas(etapas: EtapaPipeline[]): EtapaPipeline[] {
+  return etapas.map((etapa) => ({
+    ...etapa,
+    parametros: { ...etapa.parametros },
+  }));
+}
 
 /**
  * Estado del pipeline en edición. Modo fijo y modo libre se guardan por
@@ -9,9 +50,9 @@ import type { EtapaPipeline, ModoPipeline, ValorParametro } from "./pipeline.typ
  * otro — son dos borradores independientes del mismo contrato.
  */
 export function usePipeline(catalogo: RespuestaCatalogo | undefined) {
-  const [modo, setModo] = useState<ModoPipeline>("fijo");
-  const [etapasFijo, setEtapasFijo] = useState<EtapaPipeline[]>([]);
-  const [etapasLibre, setEtapasLibre] = useState<EtapaPipeline[]>([]);
+  const [modo, setModo] = useState<ModoPipeline>(cargarModo);
+  const [etapasFijo, setEtapasFijo] = useState<EtapaPipeline[]>(() => cargarEtapas(CLAVE_PIPELINE_FIJO));
+  const [etapasLibre, setEtapasLibre] = useState<EtapaPipeline[]>(() => cargarEtapas(CLAVE_BORRADOR_LIBRE));
 
   useEffect(() => {
     if (catalogo && etapasFijo.length === 0) {
@@ -19,6 +60,31 @@ export function usePipeline(catalogo: RespuestaCatalogo | undefined) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalogo]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CLAVE_BORRADOR_LIBRE, JSON.stringify(etapasLibre));
+    } catch {
+      // La edición sigue funcionando aunque el navegador bloquee localStorage.
+    }
+  }, [etapasLibre]);
+
+  useEffect(() => {
+    if (etapasFijo.length === 0) return;
+    try {
+      localStorage.setItem(CLAVE_PIPELINE_FIJO, JSON.stringify(etapasFijo));
+    } catch {
+      // La edición sigue funcionando aunque el navegador bloquee localStorage.
+    }
+  }, [etapasFijo]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CLAVE_MODO, modo);
+    } catch {
+      // La edición sigue funcionando aunque el navegador bloquee localStorage.
+    }
+  }, [modo]);
 
   const etapas = modo === "fijo" ? etapasFijo : etapasLibre;
   const setEtapas = modo === "fijo" ? setEtapasFijo : setEtapasLibre;
@@ -50,6 +116,38 @@ export function usePipeline(catalogo: RespuestaCatalogo | undefined) {
     setEtapasLibre((previas) => previas.filter((_, i) => i !== indice));
   }
 
+  function cargarEtapasLibres(etapasGuardadas: EtapaPipeline[]): void {
+    const copia = etapasGuardadas.map((etapa) => ({
+      ...etapa,
+      parametros: { ...etapa.parametros },
+    }));
+    setEtapasLibre(copia);
+    setModo("libre");
+    try {
+      localStorage.setItem(CLAVE_BORRADOR_LIBRE, JSON.stringify(copia));
+      localStorage.setItem(CLAVE_MODO, "libre");
+    } catch {
+      // React mantiene el borrador cargado aunque localStorage no esté disponible.
+    }
+  }
+
+  function cargarPipeline(pipelineGuardado: Pipeline): void {
+    const copia = copiarEtapas(pipelineGuardado.etapas);
+    if (pipelineGuardado.modo === "fijo") setEtapasFijo(copia);
+    else setEtapasLibre(copia);
+    setModo(pipelineGuardado.modo);
+
+    try {
+      localStorage.setItem(
+        pipelineGuardado.modo === "fijo" ? CLAVE_PIPELINE_FIJO : CLAVE_BORRADOR_LIBRE,
+        JSON.stringify(copia),
+      );
+      localStorage.setItem(CLAVE_MODO, pipelineGuardado.modo);
+    } catch {
+      // El estado de React conserva el pipeline aunque localStorage no esté disponible.
+    }
+  }
+
   function reordenar(desde: number, hasta: number): void {
     setEtapasLibre((previas) => {
       const copia = [...previas];
@@ -63,10 +161,13 @@ export function usePipeline(catalogo: RespuestaCatalogo | undefined) {
     modo,
     setModo,
     etapas,
+    etapasLibre,
     alternarActiva,
     actualizarParametro,
     agregarEtapa,
     quitarEtapa,
+    cargarEtapasLibres,
+    cargarPipeline,
     reordenar,
   };
 }

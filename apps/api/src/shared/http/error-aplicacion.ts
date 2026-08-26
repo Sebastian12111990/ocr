@@ -21,6 +21,12 @@ export class ErrorValidacion extends ErrorAplicacion {
   }
 }
 
+export class ErrorConflicto extends ErrorAplicacion {
+  constructor(mensaje: string, detalle?: unknown) {
+    super(mensaje, 409, detalle);
+  }
+}
+
 export class ErrorServicioExterno extends ErrorAplicacion {
   constructor(mensaje: string, codigoEstado = 502, detalle?: unknown) {
     super(mensaje, codigoEstado, detalle);

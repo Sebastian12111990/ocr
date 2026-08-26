@@ -5,12 +5,14 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
 } from "typeorm";
 
 import { Imagen } from "../imagenes/imagen.entidad.js";
 import { Preset } from "../presets/preset.entidad.js";
 import type { EtapaPipeline } from "../../shared/contrato/pipeline.js";
+import { CandidatoEjecucion } from "./candidato-ejecucion.entidad.js";
 
 /**
  * Registro de una ejecución de OCR: qué pipeline se usó, sobre qué imagen, y
@@ -38,6 +40,12 @@ export class Ejecucion {
   @Column({ type: "jsonb" })
   etapas!: EtapaPipeline[];
 
+  @Column({ name: "pipeline_version", type: "int", default: 1 })
+  pipelineVersion!: number;
+
+  @Column({ name: "patente_esperada", type: "varchar", nullable: true })
+  patenteEsperada!: string | null;
+
   @Column({ name: "texto_detectado", type: "varchar", nullable: true })
   textoDetectado!: string | null;
 
@@ -52,6 +60,15 @@ export class Ejecucion {
 
   @Column({ name: "duracion_ms", type: "int" })
   duracionMs!: number;
+
+  @Column({ name: "mejor_coincidencia", type: "real", nullable: true })
+  mejorCoincidencia!: number | null;
+
+  @Column({ name: "imagen_procesada_png", type: "bytea", nullable: true, select: false })
+  imagenProcesadaPng!: Buffer | null;
+
+  @OneToMany(() => CandidatoEjecucion, (candidato) => candidato.ejecucion)
+  candidatos!: CandidatoEjecucion[];
 
   @CreateDateColumn({ name: "creado_en" })
   creadoEn!: Date;

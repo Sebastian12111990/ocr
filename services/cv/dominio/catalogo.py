@@ -152,10 +152,16 @@ CATALOGO: list[Etapa] = [
         salida="color",
         orden_fijo=6,
         parametros=[
+            Parametro(nombre="dibujar_rectangulos", etiqueta="Dibujar rectángulos",
+                       tipo="boolean", defecto=True),
+            Parametro(nombre="grosor_linea", etiqueta="Grosor de línea", tipo="number",
+                       minimo=1, maximo=10, paso=1, defecto=1),
             Parametro(nombre="area_minima", etiqueta="Área mínima", tipo="number",
                        minimo=100, maximo=20000, paso=100, defecto=1000),
             Parametro(nombre="aspecto_minimo", etiqueta="Aspecto mínimo", tipo="number",
                        minimo=1.0, maximo=8.0, paso=0.1, defecto=1.5),
+            Parametro(nombre="angulo_maximo", etiqueta="Ángulo máximo", tipo="number",
+                       minimo=0, maximo=90, paso=1, defecto=25),
             Parametro(nombre="ocupacion_minima", etiqueta="Ocupación mínima", tipo="number",
                        minimo=0.0, maximo=1.0, paso=0.05, defecto=0.5),
             Parametro(nombre="umbral_bajo", etiqueta="Canny: umbral bajo", tipo="number",
@@ -338,7 +344,9 @@ def pipeline_por_defecto() -> list[dict]:
     return [
         {
             "tipo": etapa.tipo,
-            "activa": etapa.tipo == "harris",  # única etapa ON por defecto en el script original
+            # La vista inicial resalta directamente los candidatos a patente.
+            # Las demás etapas siguen disponibles para activarlas manualmente.
+            "activa": etapa.tipo == "rectangulos",
             "parametros": {p.nombre: p.defecto for p in etapa.parametros},
         }
         for etapa in etapas_fijas

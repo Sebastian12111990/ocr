@@ -32,7 +32,7 @@ Iniciar-Ventana -Titulo "OCR . services/cv (:8000)" `
     -Comando ".\.venv\Scripts\Activate.ps1; uvicorn app:app --reload --port 8000"
 
 Write-Host "Abriendo consola: API (apps/api)..." -ForegroundColor Cyan
-Iniciar-Ventana -Titulo "OCR . apps/api (:4000)" `
+Iniciar-Ventana -Titulo "OCR . apps/api (:6000)" `
     -DirectorioTrabajo (Join-Path $raiz "apps\api") `
     -Comando "npm run dev"
 
@@ -44,7 +44,7 @@ Iniciar-Ventana -Titulo "OCR . apps/web (:5175)" `
 Write-Host ""
 Write-Host "Listo. Postgres arriba en segundo plano y 3 ventanas abiertas:" -ForegroundColor Green
 Write-Host "  - services/cv  -> http://localhost:8000"
-Write-Host "  - apps/api     -> http://localhost:4000/api/salud"
+Write-Host "  - apps/api     -> http://localhost:6000/api/salud"
 Write-Host "  - apps/web     -> http://localhost:5175"
 Write-Host ""
 Write-Host "Para detener: cierra las 3 ventanas y corre 'docker compose down' desde la raiz del repo." -ForegroundColor DarkGray

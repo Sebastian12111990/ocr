@@ -9,6 +9,8 @@ export function crearRutasEjecuciones(contenedor: Container): Router {
   const controlador = contenedor.get<ControladorEjecuciones>(TIPOS.ControladorEjecuciones);
 
   router.get("/", controlador.listar);
+  router.get("/:id", controlador.obtenerDetalle);
+  router.post("/", controlador.guardar);
 
   return router;
 }

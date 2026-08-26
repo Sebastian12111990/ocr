@@ -9,7 +9,6 @@ import { esquemaPipeline } from "../../shared/contrato/pipeline.js";
 const esquemaCuerpo = z.object({
   imagenId: z.string().min(1),
   pipeline: esquemaPipeline,
-  presetId: z.string().min(1).nullish(),
 });
 
 @injectable()
@@ -27,9 +26,8 @@ export class ControladorOcr {
     const ejecucion = await this.servicio.ejecutar(
       cuerpo.imagenId,
       cuerpo.pipeline,
-      cuerpo.presetId ?? null,
       abortador.signal,
     );
-    res.status(201).json(ejecucion);
+    res.json(ejecucion);
   };
 }
