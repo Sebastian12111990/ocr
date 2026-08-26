@@ -1,0 +1,23 @@
+# Node
+node_modules/
+dist/
+build/
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Logs y varios
+*.log
+debug.log
+.DS_Store
+
+# Editores
+.vscode/
+.idea/

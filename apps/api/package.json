@@ -1,0 +1,35 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "description": "API del editor OCR de patentes: Node + TypeScript + Inversify + TypeORM",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "dotenv -e .env.development -- tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "dotenv -e .env.production -- node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "dotenv -e .env.development -- tsx src/infraestructura/cli-migraciones.ts run",
+    "db:revert": "dotenv -e .env.development -- tsx src/infraestructura/cli-migraciones.ts revert",
+    "db:seed": "dotenv -e .env.development -- tsx src/infraestructura/seed.ts"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "inversify": "^8.2.3",
+    "pg": "^8.23.0",
+    "reflect-metadata": "^0.2.2",
+    "typeorm": "^1.1.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.3.0",
+    "@types/pg": "^8.23.1",
+    "dotenv-cli": "^11.0.0",
+    "tsx": "^4.23.12",
+    "typescript": "^7.0.2"
+  }
+}
