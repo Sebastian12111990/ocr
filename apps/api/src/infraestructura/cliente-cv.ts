@@ -16,6 +16,22 @@ export interface ResultadoOcrCv {
   confianza: number;
 }
 
+export interface CajaCandidatoCv {
+  x: number;
+  y: number;
+  ancho: number;
+  alto: number;
+  angulo: number;
+}
+
+export interface CandidatoCv {
+  caja: CajaCandidatoCv;
+  area: number;
+  texto: string | null;
+  confianza: number | null;
+  imagen_png_base64: string | null;
+}
+
 /** Cliente HTTP hacia `services/cv` (FastAPI). Nunca lo llama el navegador. */
 @injectable()
 export class ClienteCv {
@@ -41,6 +57,17 @@ export class ClienteCv {
   ): Promise<ResultadoOcrCv> {
     const respuesta = await this.enviarJson("/ocr", { ruta, etapas }, signal);
     return (await respuesta.json()) as ResultadoOcrCv;
+  }
+
+  async obtenerCandidatos(
+    ruta: string,
+    etapas: EtapaPipeline[],
+    limite: number,
+    signal?: AbortSignal,
+  ): Promise<CandidatoCv[]> {
+    const respuesta = await this.enviarJson("/candidatos", { ruta, etapas, limite }, signal);
+    const cuerpo = (await respuesta.json()) as { candidatos: CandidatoCv[] };
+    return cuerpo.candidatos;
   }
 
   private async obtenerJson(ruta: string): Promise<unknown> {

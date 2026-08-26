@@ -8,12 +8,27 @@ Editor web para preparar fotos de patentes chilenas con filtros de OpenCV encade
 ```
 computer vision/   Scripts Python originales (intactos). Fuente de los algoritmos y de patentes/.
 apps/api/          Node + TypeScript + Inversify + TypeORM + Express        (puerto 4000)
-apps/web/          Vite + React 19 + MUI 7                                   (puerto 5175)
+apps/web/          Vite + React 19 + MUI 9                                   (puerto 5175)
 services/cv/       FastAPI + OpenCV + pytesseract                            (puerto 8000)
 compose.yml        PostgreSQL
+scripts/           Scripts de desarrollo (levantar todo con un comando)
 ```
 
-## Cómo levantar todo (desarrollo)
+## Inicio rápido (Windows)
+
+Con Docker Desktop abierto y las dependencias ya instaladas una vez (`npm install`
+en `apps/api` y `apps/web`, `pip install -r requirements.txt` en `services/cv`):
+
+```powershell
+scripts\iniciar-dev.ps1
+```
+
+o doble clic en `scripts\iniciar-dev.bat`. Levanta Postgres en segundo plano y
+abre una ventana de consola por servicio (services/cv, apps/api, apps/web) para
+ver sus logs por separado. Para detener: cerrar las 3 ventanas y correr
+`docker compose down`.
+
+## Cómo levantar todo a mano (primera vez / depuración)
 
 1. **Base de datos**
    ```bash

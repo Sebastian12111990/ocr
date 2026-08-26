@@ -26,6 +26,9 @@ import { ControladorPresets } from "../features/presets/presets.controller.js";
 import { ServicioEjecuciones } from "../features/ejecuciones/ejecuciones.service.js";
 import { ControladorEjecuciones } from "../features/ejecuciones/ejecuciones.controller.js";
 
+import { ServicioCandidatos } from "../features/candidatos/candidatos.service.js";
+import { ControladorCandidatos } from "../features/candidatos/candidatos.controller.js";
+
 /** Construye el contenedor de Inversify. Requiere que `fuenteDatos` ya esté inicializada. */
 export function crearContenedor(fuenteDatos: DataSource): Container {
   const contenedor = new Container();
@@ -54,6 +57,9 @@ export function crearContenedor(fuenteDatos: DataSource): Container {
 
   contenedor.bind(TIPOS.ServicioEjecuciones).to(ServicioEjecuciones).inSingletonScope();
   contenedor.bind(TIPOS.ControladorEjecuciones).to(ControladorEjecuciones).inSingletonScope();
+
+  contenedor.bind(TIPOS.ServicioCandidatos).to(ServicioCandidatos).inSingletonScope();
+  contenedor.bind(TIPOS.ControladorCandidatos).to(ControladorCandidatos).inSingletonScope();
 
   return contenedor;
 }

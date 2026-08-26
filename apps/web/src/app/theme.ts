@@ -8,13 +8,13 @@ import { createTheme } from "@mui/material/styles";
  */
 export const theme = createTheme({
   palette: {
-    mode: "light",
+    mode: "dark",
     primary: { main: "#6868EB" },
     success: { main: "#22C55E" },
     error: { main: "#EF4444" },
     warning: { main: "#F59E0B" },
-    background: { default: "#F9FAFB", paper: "#FFFFFF" },
-    divider: "#E5E7EB",
+    background: { default: "#0D1117", paper: "#161B22" },
+    divider: "#30363D",
   },
   typography: {
     fontFamily: "'Public Sans', 'Segoe UI', Roboto, sans-serif",

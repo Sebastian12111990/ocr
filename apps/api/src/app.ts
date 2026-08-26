@@ -4,6 +4,7 @@ import type { Container } from "inversify";
 import type { DataSource } from "typeorm";
 
 import { TIPOS } from "./contenedor/tipos.js";
+import { crearRutasCandidatos } from "./features/candidatos/candidatos.routes.js";
 import { crearRutasCatalogo } from "./features/catalogo/catalogo.routes.js";
 import { crearRutasEjecuciones } from "./features/ejecuciones/ejecuciones.routes.js";
 import { crearRutasImagenes } from "./features/imagenes/imagenes.routes.js";
@@ -38,6 +39,7 @@ export function crearApp(contenedor: Container, fuenteDatos: DataSource): Expres
   app.use("/api/ocr", crearRutasOcr(contenedor));
   app.use("/api/presets", crearRutasPresets(contenedor));
   app.use("/api/ejecuciones", crearRutasEjecuciones(contenedor));
+  app.use("/api/candidatos", crearRutasCandidatos(contenedor));
 
   app.use(middlewareError);
 

@@ -12,6 +12,7 @@ export const TIPOS = {
   ServicioOcr: Symbol.for("ServicioOcr"),
   ServicioPresets: Symbol.for("ServicioPresets"),
   ServicioEjecuciones: Symbol.for("ServicioEjecuciones"),
+  ServicioCandidatos: Symbol.for("ServicioCandidatos"),
 
   ControladorCatalogo: Symbol.for("ControladorCatalogo"),
   ControladorImagenes: Symbol.for("ControladorImagenes"),
@@ -19,4 +20,5 @@ export const TIPOS = {
   ControladorOcr: Symbol.for("ControladorOcr"),
   ControladorPresets: Symbol.for("ControladorPresets"),
   ControladorEjecuciones: Symbol.for("ControladorEjecuciones"),
+  ControladorCandidatos: Symbol.for("ControladorCandidatos"),
 } as const;

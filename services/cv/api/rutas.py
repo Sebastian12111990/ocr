@@ -12,12 +12,13 @@ import pytesseract
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
+from dominio.candidatos import obtener_candidatos
 from dominio.catalogo import catalogo_a_dict, pipeline_por_defecto
 from dominio.ocr import reconocer_texto
 from dominio.pipeline import ejecutar_pipeline
 from infraestructura.repositorio_imagenes import cargar_imagen, listar_imagenes
 
-from .esquemas import ImagenInfo, ResultadoOcr, SolicitudPipeline
+from .esquemas import ImagenInfo, RespuestaCandidatos, ResultadoOcr, SolicitudCandidatos, SolicitudPipeline
 
 router = APIRouter()
 
@@ -74,3 +75,10 @@ def ocr(solicitud: SolicitudPipeline):
             ),
         )
     return ResultadoOcr(texto=texto, confianza=confianza)
+
+
+@router.post("/candidatos", response_model=RespuestaCandidatos)
+def candidatos(solicitud: SolicitudCandidatos):
+    resultado = _procesar(solicitud)
+    lista = obtener_candidatos(resultado, solicitud.parametros_deteccion, limite=solicitud.limite)
+    return RespuestaCandidatos(candidatos=lista)

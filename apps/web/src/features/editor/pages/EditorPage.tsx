@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AppBar, Box, CircularProgress, Stack, Toolbar, Typography } from "@mui/material";
 
+import { PanelCandidatos } from "@/features/candidatos/components/PanelCandidatos";
 import { useObtenerCatalogoQuery } from "@/features/catalogo/catalogoApi";
 import { SelectorImagenes } from "@/features/imagenes/components/SelectorImagenes";
 import { PanelResultados } from "@/features/resultados/components/PanelResultados";
@@ -40,6 +41,9 @@ export function EditorPage() {
           </Box>
           <Box sx={{ flex: 1, minHeight: 0 }}>
             <LienzoImagen urlImagen={urlImagen} cargando={cargando} error={error} />
+          </Box>
+          <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1 }}>
+            <PanelCandidatos imagenId={imagenId} pipeline={{ modo: pipeline.modo, etapas: pipeline.etapas }} />
           </Box>
         </Stack>
 
