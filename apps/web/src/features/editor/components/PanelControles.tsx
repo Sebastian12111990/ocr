@@ -61,6 +61,7 @@ export function PanelControles({ catalogo, pipeline, imagenId, onCambiarImagen }
     setModo,
     etapas,
     etapasLibre,
+    identidadesEtapasLibre,
     alternarActiva,
     actualizarParametro,
     agregarEtapa,
@@ -264,8 +265,9 @@ export function PanelControles({ catalogo, pipeline, imagenId, onCambiarImagen }
                 {etapas.map((etapa, indice) => {
                   const definicion = definicionDe(etapa.tipo);
                   if (!definicion) return null;
+                  const identidad = identidadesEtapasLibre[indice] ?? `${etapa.tipo}-${indice}`;
                   return (
-                    <Draggable key={`${etapa.tipo}-${indice}`} draggableId={`${etapa.tipo}-${indice}`} index={indice}>
+                    <Draggable key={identidad} draggableId={identidad} index={indice}>
                       {(provistoArrastre) => (
                         <Box
                           ref={provistoArrastre.innerRef}

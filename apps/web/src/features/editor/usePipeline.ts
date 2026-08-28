@@ -6,6 +6,19 @@ import type { EtapaPipeline, ModoPipeline, Pipeline, ValorParametro } from "./pi
 const CLAVE_BORRADOR_LIBRE = "ocr.pipeline.modo-libre.v1";
 const CLAVE_PIPELINE_FIJO = "ocr.pipeline.modo-fijo.v1";
 const CLAVE_MODO = "ocr.pipeline.modo-activo.v1";
+let secuenciaIdentidades = 0;
+
+function crearIdentidadEtapa(): string {
+  secuenciaIdentidades += 1;
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${secuenciaIdentidades}`;
+}
+
+function moverElemento<T>(elementos: T[], desde: number, hasta: number): T[] {
+  const copia = [...elementos];
+  const [movido] = copia.splice(desde, 1);
+  if (movido !== undefined) copia.splice(hasta, 0, movido);
+  return copia;
+}
 
 function cargarEtapas(clave: string): EtapaPipeline[] {
   try {
@@ -53,6 +66,9 @@ export function usePipeline(catalogo: RespuestaCatalogo | undefined) {
   const [modo, setModo] = useState<ModoPipeline>(cargarModo);
   const [etapasFijo, setEtapasFijo] = useState<EtapaPipeline[]>(() => cargarEtapas(CLAVE_PIPELINE_FIJO));
   const [etapasLibre, setEtapasLibre] = useState<EtapaPipeline[]>(() => cargarEtapas(CLAVE_BORRADOR_LIBRE));
+  const [identidadesEtapasLibre, setIdentidadesEtapasLibre] = useState<string[]>(() =>
+    cargarEtapas(CLAVE_BORRADOR_LIBRE).map(() => crearIdentidadEtapa()),
+  );
 
   useEffect(() => {
     if (catalogo && etapasFijo.length === 0) {
@@ -110,10 +126,12 @@ export function usePipeline(catalogo: RespuestaCatalogo | undefined) {
       parametros: Object.fromEntries(definicion.parametros.map((p) => [p.nombre, p.defecto])),
     };
     setEtapasLibre((previas) => [...previas, nueva]);
+    setIdentidadesEtapasLibre((previas) => [...previas, crearIdentidadEtapa()]);
   }
 
   function quitarEtapa(indice: number): void {
     setEtapasLibre((previas) => previas.filter((_, i) => i !== indice));
+    setIdentidadesEtapasLibre((previas) => previas.filter((_, i) => i !== indice));
   }
 
   function cargarEtapasLibres(etapasGuardadas: EtapaPipeline[]): void {
@@ -122,6 +140,7 @@ export function usePipeline(catalogo: RespuestaCatalogo | undefined) {
       parametros: { ...etapa.parametros },
     }));
     setEtapasLibre(copia);
+    setIdentidadesEtapasLibre(copia.map(() => crearIdentidadEtapa()));
     setModo("libre");
     try {
       localStorage.setItem(CLAVE_BORRADOR_LIBRE, JSON.stringify(copia));
@@ -134,7 +153,10 @@ export function usePipeline(catalogo: RespuestaCatalogo | undefined) {
   function cargarPipeline(pipelineGuardado: Pipeline): void {
     const copia = copiarEtapas(pipelineGuardado.etapas);
     if (pipelineGuardado.modo === "fijo") setEtapasFijo(copia);
-    else setEtapasLibre(copia);
+    else {
+      setEtapasLibre(copia);
+      setIdentidadesEtapasLibre(copia.map(() => crearIdentidadEtapa()));
+    }
     setModo(pipelineGuardado.modo);
 
     try {
@@ -149,12 +171,8 @@ export function usePipeline(catalogo: RespuestaCatalogo | undefined) {
   }
 
   function reordenar(desde: number, hasta: number): void {
-    setEtapasLibre((previas) => {
-      const copia = [...previas];
-      const [movida] = copia.splice(desde, 1);
-      if (movida) copia.splice(hasta, 0, movida);
-      return copia;
-    });
+    setEtapasLibre((previas) => moverElemento(previas, desde, hasta));
+    setIdentidadesEtapasLibre((previas) => moverElemento(previas, desde, hasta));
   }
 
   return {
@@ -162,6 +180,7 @@ export function usePipeline(catalogo: RespuestaCatalogo | undefined) {
     setModo,
     etapas,
     etapasLibre,
+    identidadesEtapasLibre,
     alternarActiva,
     actualizarParametro,
     agregarEtapa,

@@ -7,7 +7,7 @@ import { TIPOS } from "../../contenedor/tipos.js";
 import { esquemaPipeline } from "../../shared/contrato/pipeline.js";
 
 const esquemaConsulta = z.object({
-  imagenId: z.string().min(1).optional(),
+  imagenId: z.string().uuid().optional(),
   acierto: z
     .enum(["true", "false"])
     .optional()
@@ -25,16 +25,16 @@ const esquemaCandidato = z.object({
     angulo: z.number().finite(),
   }),
   area: z.number().finite().positive(),
-  texto: z.string().nullable(),
+  texto: z.string().max(256).nullable(),
   confianza: z.number().min(0).max(100).nullable(),
   coincidencia: z.number().min(0).max(100).nullable(),
   imagenPngBase64: esquemaBase64.nullable(),
 });
 const esquemaGuardar = z.object({
-  imagenId: z.string().min(1),
+  imagenId: z.string().uuid(),
   pipeline: esquemaPipeline,
   resultadoOcr: z.object({
-    textoDetectado: z.string().nullable(),
+    textoDetectado: z.string().max(4096).nullable(),
     confianza: z.number().min(0).max(100).nullable(),
     duracionMs: z.number().int().nonnegative(),
   }),

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AppBar, Box, CircularProgress, Stack, Toolbar, Typography } from "@mui/material";
+import { AppBar, Box, Chip, CircularProgress, Stack, Toolbar, Typography } from "@mui/material";
 
 import { PanelCandidatos } from "@/features/candidatos/components/PanelCandidatos";
 import type { Candidato } from "@/features/candidatos/candidatos.types";
-import type { RespuestaCatalogo } from "@/features/catalogo/catalogo.types";
+import type { ParametroCatalogo, RespuestaCatalogo } from "@/features/catalogo/catalogo.types";
 import { useObtenerCatalogoQuery } from "@/features/catalogo/catalogoApi";
 import { SelectorImagenes } from "@/features/imagenes/components/SelectorImagenes";
 import { PanelResultados } from "@/features/resultados/components/PanelResultados";
@@ -30,6 +30,21 @@ interface EjecucionCargada {
   vista: VistaHistorica;
 }
 
+function formatearFechaHistorica(valor: string): string {
+  const fecha = new Date(valor);
+  if (Number.isNaN(fecha.getTime())) return valor;
+  return new Intl.DateTimeFormat("es-CL", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(fecha);
+}
+
+function formatearCoincidencia(valor: number): string {
+  return new Intl.NumberFormat("es-CL", {
+    maximumFractionDigits: 2,
+  }).format(valor);
+}
+
 function copiarPipeline(pipeline: Pipeline): Pipeline {
   return {
     modo: pipeline.modo,
@@ -40,10 +55,25 @@ function copiarPipeline(pipeline: Pipeline): Pipeline {
   };
 }
 
-function parametroCompatible(valor: ValorParametro, tipo: "number" | "enum" | "boolean"): boolean {
-  if (tipo === "number") return typeof valor === "number" && Number.isFinite(valor);
-  if (tipo === "boolean") return typeof valor === "boolean";
-  return typeof valor === "string";
+function parametroCompatible(valor: ValorParametro, parametro: ParametroCatalogo): boolean {
+  if (parametro.tipo === "boolean") return typeof valor === "boolean";
+  if (parametro.tipo === "enum") {
+    return typeof valor === "string"
+      && (!parametro.opciones || parametro.opciones.includes(valor));
+  }
+  if (typeof valor !== "number" || !Number.isFinite(valor)) return false;
+
+  const tolerancia = Math.max(1, Math.abs(valor)) * 1e-9;
+  if (parametro.minimo !== undefined && valor < parametro.minimo - tolerancia) return false;
+  if (parametro.maximo !== undefined && valor > parametro.maximo + tolerancia) return false;
+  if (parametro.solo_impares && (!Number.isInteger(valor) || Math.abs(valor % 2) !== 1)) return false;
+
+  if (parametro.paso !== undefined && parametro.paso > 0) {
+    const origen = parametro.minimo ?? 0;
+    const cantidadPasos = (valor - origen) / parametro.paso;
+    if (Math.abs(cantidadPasos - Math.round(cantidadPasos)) > 1e-7) return false;
+  }
+  return true;
 }
 
 function prepararEjecucion(
@@ -68,14 +98,9 @@ function prepararEjecucion(
 
     for (const parametro of definicion.parametros) {
       const valor = etapa.parametros[parametro.nombre];
-      if (valor === undefined || !parametroCompatible(valor, parametro.tipo)) {
+      if (valor === undefined || !parametroCompatible(valor, parametro)) {
         throw new Error(
           `El parámetro «${parametro.nombre}» de la etapa «${etapa.tipo}» no es compatible`,
-        );
-      }
-      if (parametro.tipo === "enum" && parametro.opciones && !parametro.opciones.includes(valor as string)) {
-        throw new Error(
-          `El valor de «${parametro.nombre}» en la etapa «${etapa.tipo}» ya no está disponible`,
         );
       }
     }
@@ -246,10 +271,33 @@ export function EditorPage() {
   return (
     <Stack sx={{ height: "100vh" }}>
       <AppBar position="static" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: "divider" }}>
-        <Toolbar variant="dense">
+        <Toolbar variant="dense" sx={{ gap: 1.25, minWidth: 0 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
             Editor OCR de patentes
           </Typography>
+          {ejecucionCargada && (
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{ alignItems: "center", minWidth: 0, flexWrap: "wrap" }}
+            >
+              <Chip size="small" color="info" variant="outlined" label="BD" />
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                {formatearFechaHistorica(ejecucionCargada.detalle.creadoEn)}
+              </Typography>
+              <Chip
+                size="small"
+                color={ejecucionCargada.detalle.mejorCoincidencia === 100
+                  ? "success"
+                  : ejecucionCargada.detalle.mejorCoincidencia >= 60
+                    ? "warning"
+                    : "default"}
+                label={`Mejor coincidencia: ${formatearCoincidencia(
+                  ejecucionCargada.detalle.mejorCoincidencia,
+                )}%`}
+              />
+            </Stack>
+          )}
         </Toolbar>
       </AppBar>
 

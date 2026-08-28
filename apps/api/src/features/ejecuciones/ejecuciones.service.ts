@@ -1,3 +1,5 @@
+import { inflateSync } from "node:zlib";
+
 import { inject, injectable } from "inversify";
 import type { Repository } from "typeorm";
 
@@ -243,23 +245,138 @@ export class ServicioEjecuciones {
 }
 
 function decodificarPng(base64: string, etiqueta: string, maximoBytes: number): Buffer {
+  if (base64.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) {
+    throw new ErrorValidacion(`El archivo de ${etiqueta} no contiene Base64 válido`);
+  }
   const buffer = Buffer.from(base64, "base64");
-  const firmaPng = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-  const inicioIhdrValido = buffer.length >= 33
-    && buffer.readUInt32BE(8) === 13
-    && buffer.subarray(12, 16).toString("ascii") === "IHDR"
-    && buffer.readUInt32BE(16) > 0
-    && buffer.readUInt32BE(20) > 0;
-  const inicioIend = buffer.length - 12;
-  const finIendValido = inicioIend >= 33
-    && buffer.readUInt32BE(inicioIend) === 0
-    && buffer.subarray(inicioIend + 4, inicioIend + 8).toString("ascii") === "IEND"
-    && buffer.readUInt32BE(inicioIend + 8) === 0xae426082;
-  if (!firmaPng.every((byte, indice) => buffer[indice] === byte) || !inicioIhdrValido || !finIendValido) {
-    throw new ErrorValidacion(`El archivo de ${etiqueta} no es un PNG válido`);
+  if (buffer.toString("base64") !== base64) {
+    throw new ErrorValidacion(`El archivo de ${etiqueta} no contiene Base64 canónico`);
   }
   if (buffer.length > maximoBytes) {
     throw new ErrorValidacion(`El archivo de ${etiqueta} supera el tamaño máximo permitido`);
   }
+  validarPng(buffer, etiqueta);
   return buffer;
+}
+
+const FIRMA_PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const MAXIMO_DESCOMPRIMIDO = 100 * 1024 * 1024;
+const TABLA_CRC32 = Array.from({ length: 256 }, (_, indice) => {
+  let crc = indice;
+  for (let bit = 0; bit < 8; bit += 1) crc = (crc & 1) !== 0 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1;
+  return crc >>> 0;
+});
+
+function crc32(datos: Uint8Array): number {
+  let crc = 0xffffffff;
+  for (const byte of datos) crc = TABLA_CRC32[(crc ^ byte) & 0xff]! ^ (crc >>> 8);
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function pngInvalido(etiqueta: string, detalle?: string): never {
+  throw new ErrorValidacion(
+    `El archivo de ${etiqueta} no es un PNG válido${detalle ? `: ${detalle}` : ""}`,
+  );
+}
+
+function validarPng(buffer: Buffer, etiqueta: string): void {
+  if (buffer.length < 45 || !buffer.subarray(0, FIRMA_PNG.length).equals(FIRMA_PNG)) {
+    pngInvalido(etiqueta, "firma ausente");
+  }
+
+  let desplazamiento = FIRMA_PNG.length;
+  let ancho = 0;
+  let alto = 0;
+  let profundidadBits = 0;
+  let tipoColor = -1;
+  let ihdrVisto = false;
+  let plteVisto = false;
+  let idatVisto = false;
+  let grupoIdatTerminado = false;
+  let iendVisto = false;
+  const bloquesIdat: Buffer[] = [];
+
+  while (desplazamiento < buffer.length) {
+    if (desplazamiento + 12 > buffer.length) pngInvalido(etiqueta, "chunk incompleto");
+    const longitud = buffer.readUInt32BE(desplazamiento);
+    const inicioTipo = desplazamiento + 4;
+    const inicioDatos = inicioTipo + 4;
+    const finDatos = inicioDatos + longitud;
+    const finChunk = finDatos + 4;
+    if (finDatos < inicioDatos || finChunk > buffer.length) pngInvalido(etiqueta, "longitud de chunk inválida");
+
+    const tipo = buffer.subarray(inicioTipo, inicioDatos).toString("ascii");
+    if (!/^[A-Za-z]{4}$/.test(tipo)) pngInvalido(etiqueta, "tipo de chunk inválido");
+    const crcEsperado = buffer.readUInt32BE(finDatos);
+    const crcCalculado = crc32(buffer.subarray(inicioTipo, finDatos));
+    if (crcCalculado !== crcEsperado) pngInvalido(etiqueta, `CRC inválido en ${tipo}`);
+
+    if (!ihdrVisto && tipo !== "IHDR") pngInvalido(etiqueta, "IHDR no es el primer chunk");
+    if (idatVisto && tipo !== "IDAT" && tipo !== "IEND") grupoIdatTerminado = true;
+
+    if (tipo === "IHDR") {
+      if (ihdrVisto || longitud !== 13 || desplazamiento !== FIRMA_PNG.length) {
+        pngInvalido(etiqueta, "IHDR inválido");
+      }
+      ihdrVisto = true;
+      ancho = buffer.readUInt32BE(inicioDatos);
+      alto = buffer.readUInt32BE(inicioDatos + 4);
+      profundidadBits = buffer[inicioDatos + 8]!;
+      tipoColor = buffer[inicioDatos + 9]!;
+      const compresion = buffer[inicioDatos + 10];
+      const filtro = buffer[inicioDatos + 11];
+      const entrelazado = buffer[inicioDatos + 12];
+      if (ancho === 0 || alto === 0 || compresion !== 0 || filtro !== 0 || entrelazado !== 0) {
+        pngInvalido(etiqueta, "cabecera no soportada");
+      }
+    } else if (tipo === "PLTE") {
+      if (idatVisto || longitud === 0 || longitud % 3 !== 0 || longitud > 768) {
+        pngInvalido(etiqueta, "paleta inválida");
+      }
+      plteVisto = true;
+    } else if (tipo === "IDAT") {
+      if (grupoIdatTerminado || iendVisto) pngInvalido(etiqueta, "chunks IDAT no consecutivos");
+      idatVisto = true;
+      bloquesIdat.push(buffer.subarray(inicioDatos, finDatos));
+    } else if (tipo === "IEND") {
+      if (longitud !== 0 || !idatVisto || finChunk !== buffer.length) pngInvalido(etiqueta, "IEND inválido");
+      iendVisto = true;
+    } else if ((buffer[inicioTipo]! & 0x20) === 0) {
+      pngInvalido(etiqueta, `chunk crítico desconocido ${tipo}`);
+    }
+
+    desplazamiento = finChunk;
+  }
+
+  if (!ihdrVisto || !idatVisto || !iendVisto) pngInvalido(etiqueta, "faltan chunks obligatorios");
+
+  const configuracionesColor: Record<number, { canales: number; profundidades: number[] }> = {
+    0: { canales: 1, profundidades: [1, 2, 4, 8, 16] },
+    2: { canales: 3, profundidades: [8, 16] },
+    3: { canales: 1, profundidades: [1, 2, 4, 8] },
+    4: { canales: 2, profundidades: [8, 16] },
+    6: { canales: 4, profundidades: [8, 16] },
+  };
+  const configuracion = configuracionesColor[tipoColor];
+  if (!configuracion || !configuracion.profundidades.includes(profundidadBits)) {
+    pngInvalido(etiqueta, "tipo de color o profundidad inválidos");
+  }
+  if (tipoColor === 3 && !plteVisto) pngInvalido(etiqueta, "imagen indexada sin paleta");
+
+  const bytesPorFila = Math.ceil((ancho * configuracion.canales * profundidadBits) / 8);
+  const longitudEsperada = alto * (bytesPorFila + 1);
+  if (!Number.isSafeInteger(longitudEsperada) || longitudEsperada > MAXIMO_DESCOMPRIMIDO) {
+    pngInvalido(etiqueta, "dimensiones excesivas");
+  }
+
+  let pixeles: Buffer;
+  try {
+    pixeles = inflateSync(Buffer.concat(bloquesIdat), { maxOutputLength: longitudEsperada });
+  } catch {
+    pngInvalido(etiqueta, "datos IDAT corruptos");
+  }
+  if (pixeles.length !== longitudEsperada) pngInvalido(etiqueta, "cantidad de píxeles inconsistente");
+  for (let fila = 0; fila < alto; fila += 1) {
+    if (pixeles[fila * (bytesPorFila + 1)]! > 4) pngInvalido(etiqueta, "filtro de fila inválido");
+  }
 }
