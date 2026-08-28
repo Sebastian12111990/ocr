@@ -74,23 +74,23 @@ def cuadricula(imagen: np.ndarray, parametros: dict) -> np.ndarray:
 
 
 def rectangulos(imagen: np.ndarray, parametros: dict) -> np.ndarray:
+    if not bool(parametros.get("dibujar_rectangulos", True)):
+        return imagen
+
     candidatos = detectar_rectangulos(
         imagen,
         area_minima=float(parametros.get("area_minima", 1000)),
         aspecto_minimo=float(parametros.get("aspecto_minimo", 1.5)),
         ocupacion_minima=float(parametros.get("ocupacion_minima", 0.5)),
+        angulo_maximo=float(parametros.get("angulo_maximo", 25)),
         umbral_bajo=int(parametros.get("umbral_bajo", 50)),
         umbral_alto=int(parametros.get("umbral_alto", 150)),
     )
     canvas = a_color(imagen)
+    grosor_linea = max(1, min(10, int(parametros.get("grosor_linea", 1))))
     for candidato in candidatos:
-        (centro_x, centro_y), _tamano, angulo = candidato["rectangulo"]
         vertices = np.intp(cv2.boxPoints(candidato["rectangulo"]))
-        cv2.drawContours(canvas, [vertices], 0, MARCA_VERDE, 2)
-        cv2.putText(
-            canvas, f"{angulo:.1f} grados", (int(centro_x), int(centro_y)),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.45, MARCA_VERDE, 1, cv2.LINE_AA,
-        )
+        cv2.drawContours(canvas, [vertices], 0, MARCA_VERDE, grosor_linea)
     return canvas
 
 

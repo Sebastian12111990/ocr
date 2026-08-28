@@ -11,5 +11,7 @@ export interface Candidato {
   area: number;
   texto: string | null;
   confianza: number | null;
+  coincidencia: number | null;
+  patenteEsperada: string | null;
   imagenPngBase64: string | null;
 }

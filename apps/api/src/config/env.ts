@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const esquemaEntorno = z.object({
-  PUERTO: z.coerce.number().default(4000),
+  PUERTO: z.coerce.number().default(6000),
   POSTGRES_HOST: z.string().default("localhost"),
   POSTGRES_PORT: z.coerce.number().default(5432),
   POSTGRES_USER: z.string(),

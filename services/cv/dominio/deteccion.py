@@ -10,6 +10,15 @@ import numpy as np
 from .canales import a_gris
 
 
+def _angulo_respecto_horizontal(rectangulo) -> float:
+    """Ángulo firmado del lado más largo, normalizado entre -90° y 90°."""
+    vertices = cv2.boxPoints(rectangulo)
+    lados = np.roll(vertices, -1, axis=0) - vertices
+    lado_largo = lados[int(np.argmax(np.linalg.norm(lados, axis=1)))]
+    angulo = float(np.degrees(np.arctan2(lado_largo[1], lado_largo[0])))
+    return (angulo + 90.0) % 180.0 - 90.0
+
+
 def _interseccion_sobre_union(caja_a: tuple, caja_b: tuple) -> float:
     xa, ya, ancho_a, alto_a = caja_a
     xb, yb, ancho_b, alto_b = caja_b
@@ -29,6 +38,7 @@ def detectar_rectangulos(
     area_minima: float,
     aspecto_minimo: float,
     ocupacion_minima: float,
+    angulo_maximo: float,
     umbral_bajo: int,
     umbral_alto: int,
 ) -> list[dict]:
@@ -37,7 +47,11 @@ def detectar_rectangulos(
     exterior del mismo objeto suelen pasar ambos el filtro). Cada uno es
     `{"rectangulo": cv2.minAreaRect(...), "area": float}`."""
     gris = a_gris(imagen)
-    bordes = cv2.Canny(gris, umbral_bajo, umbral_alto)
+    # En modo libre es habitual colocar "Bordes (Canny)" antes de esta
+    # etapa. Si la entrada ya contiene solamente 0 y 255, volver a aplicar
+    # Canny borra muchos contornos y evita que los rectángulos se dibujen.
+    es_mapa_de_bordes = bool(np.all((gris == 0) | (gris == 255)))
+    bordes = gris if es_mapa_de_bordes else cv2.Canny(gris, umbral_bajo, umbral_alto)
     contornos, _ = cv2.findContours(bordes, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
     candidatos = []
@@ -50,8 +64,18 @@ def detectar_rectangulos(
         area_rectangulo = ancho * alto
         aspecto = max(ancho, alto) / min(ancho, alto)
         ocupacion = cv2.contourArea(contorno) / area_rectangulo
-        if area_rectangulo >= area_minima and aspecto >= aspecto_minimo and ocupacion >= ocupacion_minima:
-            candidatos.append({"rectangulo": rectangulo, "area": area_rectangulo})
+        angulo_horizontal = _angulo_respecto_horizontal(rectangulo)
+        if (
+            area_rectangulo >= area_minima
+            and aspecto >= aspecto_minimo
+            and ocupacion >= ocupacion_minima
+            and abs(angulo_horizontal) <= angulo_maximo
+        ):
+            candidatos.append({
+                "rectangulo": rectangulo,
+                "area": area_rectangulo,
+                "angulo_horizontal": angulo_horizontal,
+            })
 
     candidatos.sort(key=lambda c: c["area"], reverse=True)
 

@@ -1,4 +1,6 @@
-import { MenuItem, Slider, Stack, Switch, TextField, Typography } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
+import RemoveIcon from "@mui/icons-material/Remove";
+import { Checkbox, IconButton, MenuItem, Slider, Stack, TextField, Typography } from "@mui/material";
 
 import type { ParametroCatalogo } from "@/features/catalogo/catalogo.types";
 import type { ValorParametro } from "../pipeline.types";
@@ -16,7 +18,7 @@ export function ControlParametro({ parametro, valor, onChange }: Props) {
     return (
       <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between" }}>
         <Typography variant="body2">{parametro.etiqueta}</Typography>
-        <Switch
+        <Checkbox
           size="small"
           checked={Boolean(valor)}
           onChange={(evento) => onChange(evento.target.checked)}
@@ -45,6 +47,15 @@ export function ControlParametro({ parametro, valor, onChange }: Props) {
   }
 
   const numero = typeof valor === "number" ? valor : Number(valor);
+  const paso = parametro.paso ?? 1;
+  const minimo = parametro.minimo ?? Number.NEGATIVE_INFINITY;
+  const maximo = parametro.maximo ?? Number.POSITIVE_INFINITY;
+
+  function desplazar(cantidad: number): void {
+    const nuevoValor = Math.max(minimo, Math.min(maximo, numero + cantidad * paso));
+    onChange(Number(nuevoValor.toFixed(10)));
+  }
+
   return (
     <Stack spacing={0.5}>
       <Stack direction="row" sx={{ justifyContent: "space-between" }}>
@@ -53,14 +64,33 @@ export function ControlParametro({ parametro, valor, onChange }: Props) {
           {numero}
         </Typography>
       </Stack>
-      <Slider
-        size="small"
-        value={numero}
-        min={parametro.minimo}
-        max={parametro.maximo}
-        step={parametro.paso ?? 1}
-        onChange={(_evento, nuevoValor) => onChange(Array.isArray(nuevoValor) ? nuevoValor[0]! : nuevoValor)}
-      />
+      <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
+        <IconButton
+          size="small"
+          aria-label={`Disminuir ${parametro.etiqueta}`}
+          disabled={numero <= minimo}
+          onClick={() => desplazar(-1)}
+        >
+          <RemoveIcon fontSize="small" />
+        </IconButton>
+        <Slider
+          size="small"
+          value={numero}
+          min={parametro.minimo}
+          max={parametro.maximo}
+          step={paso}
+          onChange={(_evento, nuevoValor) => onChange(Array.isArray(nuevoValor) ? nuevoValor[0]! : nuevoValor)}
+          sx={{ flex: 1 }}
+        />
+        <IconButton
+          size="small"
+          aria-label={`Aumentar ${parametro.etiqueta}`}
+          disabled={numero >= maximo}
+          onClick={() => desplazar(1)}
+        >
+          <AddIcon fontSize="small" />
+        </IconButton>
+      </Stack>
     </Stack>
   );
 }

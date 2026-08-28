@@ -34,3 +34,15 @@ export function distanciaLevenshtein(a: string, b: string): number {
 
   return matriz[filas - 1]![columnas - 1]!;
 }
+
+/**
+ * Calcula la similitud normalizada y evita residuos de coma flotante en
+ * umbrales exactos (por ejemplo, 20% no debe convertirse en 19.999999...).
+ */
+export function calcularCoincidencia(texto: string, esperado: string): number {
+  const longitud = Math.max(texto.length, esperado.length);
+  if (longitud === 0) return 0;
+
+  const porcentaje = Math.max(0, (1 - distanciaLevenshtein(texto, esperado) / longitud) * 100);
+  return Math.round(porcentaje * 100) / 100;
+}

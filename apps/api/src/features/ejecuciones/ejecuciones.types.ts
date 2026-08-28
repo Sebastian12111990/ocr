@@ -1,45 +1,37 @@
-import type { Candidato } from "@/features/candidatos/candidatos.types";
-import type { EtapaPipeline, ModoPipeline, Pipeline } from "@/features/editor/pipeline.types";
-import type { Imagen } from "@/features/imagenes/imagenes.types";
+import type { Pipeline } from "../../shared/contrato/pipeline.js";
 
-export interface Preset {
-  id: string;
-  nombre: string;
-  modo: ModoPipeline;
-  etapas: EtapaPipeline[];
-  creadoEn: string;
-  actualizadoEn: string;
+export interface ResultadoOcrParaGuardar {
+  textoDetectado: string | null;
+  confianza: number | null;
+  duracionMs: number;
 }
 
-export interface ResultadoOcrManual {
-  imagen: Pick<Imagen, "id" | "nombreArchivo" | "patenteEsperada">;
-  modo: ModoPipeline;
-  etapas: EtapaPipeline[];
-  textoDetectado: string;
+export interface CandidatoParaGuardar {
+  caja: {
+    x: number;
+    y: number;
+    ancho: number;
+    alto: number;
+    angulo: number;
+  };
+  area: number;
+  texto: string | null;
   confianza: number | null;
-  acierto: boolean;
-  distanciaEdicion: number | null;
-  duracionMs: number;
+  coincidencia: number | null;
+  imagenPngBase64: string | null;
 }
 
 export interface SolicitudGuardarEjecucion {
   imagenId: string;
   pipeline: Pipeline;
-  resultadoOcr: {
-    textoDetectado: string | null;
-    confianza: number | null;
-    duracionMs: number;
-  };
+  resultadoOcr: ResultadoOcrParaGuardar;
   imagenProcesadaPngBase64: string;
-  candidatos: Array<Pick<
-    Candidato,
-    "caja" | "area" | "texto" | "confianza" | "coincidencia" | "imagenPngBase64"
-  >>;
+  candidatos: CandidatoParaGuardar[];
 }
 
 export interface ResultadoGuardarEjecucion {
   id: string;
-  creadoEn: string;
+  creadoEn: Date;
   mejorCoincidencia: number;
   candidatosGuardados: number;
 }
@@ -51,16 +43,16 @@ export interface ResumenEjecucion {
     nombreArchivo: string;
   };
   patenteEsperada: string;
-  modo: ModoPipeline;
+  modo: Pipeline["modo"];
   pipelineVersion: number;
-  creadoEn: string;
+  creadoEn: Date;
   mejorCoincidencia: number;
   candidatosGuardados: number;
 }
 
 export interface DetalleEjecucion {
   id: string;
-  creadoEn: string;
+  creadoEn: Date;
   imagen: {
     id: string;
     nombreArchivo: string;
@@ -82,7 +74,13 @@ export interface DetalleEjecucion {
   candidatos: Array<{
     id: string;
     orden: number;
-    caja: Candidato["caja"];
+    caja: {
+      x: number;
+      y: number;
+      ancho: number;
+      alto: number;
+      angulo: number;
+    };
     area: number;
     texto: string;
     confianza: number | null;

@@ -9,6 +9,8 @@
     "build": "tsc",
     "start": "dotenv -e .env.production -- node dist/index.js",
     "typecheck": "tsc --noEmit",
+    "verify:ejecuciones": "dotenv -e .env.development -- tsx scripts/verificar-ejecuciones.ts",
+    "verify:stack": "dotenv -e .env.development -- tsx scripts/verificar-stack.ts",
     "db:migrate": "dotenv -e .env.development -- tsx src/infraestructura/cli-migraciones.ts run",
     "db:revert": "dotenv -e .env.development -- tsx src/infraestructura/cli-migraciones.ts revert",
     "db:seed": "dotenv -e .env.development -- tsx src/infraestructura/seed.ts"

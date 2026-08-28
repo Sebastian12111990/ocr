@@ -40,6 +40,7 @@ def obtener_candidatos(imagen: np.ndarray, parametros_deteccion: dict, limite: i
         area_minima=float(parametros["area_minima"]),
         aspecto_minimo=float(parametros["aspecto_minimo"]),
         ocupacion_minima=float(parametros["ocupacion_minima"]),
+        angulo_maximo=float(parametros["angulo_maximo"]),
         umbral_bajo=int(parametros["umbral_bajo"]),
         umbral_alto=int(parametros["umbral_alto"]),
     )[:limite]
@@ -59,7 +60,7 @@ def obtener_candidatos(imagen: np.ndarray, parametros_deteccion: dict, limite: i
         ok, buffer = cv2.imencode(".png", recorte_color)
         imagen_base64 = base64.b64encode(buffer.tobytes()).decode("ascii") if ok else None
 
-        _centro, _tamano, angulo = candidato["rectangulo"]
+        angulo = candidato["angulo_horizontal"]
         resultados.append({
             "caja": {"x": x, "y": y, "ancho": ancho, "alto": alto, "angulo": angulo},
             "area": candidato["area"],

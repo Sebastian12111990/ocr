@@ -1,8 +1,11 @@
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 DIRECTORIO_SERVICIO = Path(__file__).resolve().parent
 DIRECTORIO_REPO = DIRECTORIO_SERVICIO.parent.parent
+load_dotenv(DIRECTORIO_SERVICIO / ".env")
 
 DIRECTORIO_IMAGENES = Path(
     os.getenv(

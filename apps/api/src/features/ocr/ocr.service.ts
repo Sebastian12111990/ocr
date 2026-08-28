@@ -1,29 +1,35 @@
 import { inject, injectable } from "inversify";
-import type { Repository } from "typeorm";
 
-import { Ejecucion } from "../ejecuciones/ejecucion.entidad.js";
-import { Preset } from "../presets/preset.entidad.js";
 import { ClienteCv } from "../../infraestructura/cliente-cv.js";
 import { ServicioImagenes } from "../imagenes/imagenes.service.js";
+import type { Imagen } from "../imagenes/imagen.entidad.js";
 import { TIPOS } from "../../contenedor/tipos.js";
-import type { Pipeline } from "../../shared/contrato/pipeline.js";
+import type { EtapaPipeline, Pipeline } from "../../shared/contrato/pipeline.js";
 import { distanciaLevenshtein, normalizarTexto } from "../../shared/utils/texto.js";
+
+export interface ResultadoOcrManual {
+  imagen: Imagen;
+  modo: "fijo" | "libre";
+  etapas: EtapaPipeline[];
+  textoDetectado: string;
+  confianza: number;
+  acierto: boolean;
+  distanciaEdicion: number | null;
+  duracionMs: number;
+}
 
 @injectable()
 export class ServicioOcr {
   constructor(
     @inject(TIPOS.ClienteCv) private readonly clienteCv: ClienteCv,
     @inject(TIPOS.ServicioImagenes) private readonly servicioImagenes: ServicioImagenes,
-    @inject(TIPOS.RepositorioEjecucion) private readonly repositorioEjecucion: Repository<Ejecucion>,
-    @inject(TIPOS.RepositorioPreset) private readonly repositorioPreset: Repository<Preset>,
   ) {}
 
   async ejecutar(
     imagenId: string,
     pipeline: Pipeline,
-    presetId: string | null,
     signal?: AbortSignal,
-  ): Promise<Ejecucion> {
+  ): Promise<ResultadoOcrManual> {
     const inicio = Date.now();
     const imagen = await this.servicioImagenes.obtenerPorId(imagenId);
     const resultado = await this.clienteCv.ejecutarOcr(imagen.rutaRelativa, pipeline.etapas, signal);
@@ -36,11 +42,8 @@ export class ServicioOcr {
       : null;
     const acierto = patenteEsperada !== null && textoDetectado === patenteEsperada;
 
-    const preset = presetId ? await this.repositorioPreset.findOneBy({ id: presetId }) : null;
-
-    const ejecucion = this.repositorioEjecucion.create({
+    return {
       imagen,
-      preset,
       modo: pipeline.modo,
       etapas: pipeline.etapas,
       textoDetectado,
@@ -48,8 +51,6 @@ export class ServicioOcr {
       acierto,
       distanciaEdicion,
       duracionMs,
-    });
-
-    return this.repositorioEjecucion.save(ejecucion);
+    };
   }
 }
