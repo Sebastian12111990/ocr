@@ -21,6 +21,34 @@ export const theme = createTheme({
   },
   shape: { borderRadius: 8 },
   components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        "*": {
+          scrollbarWidth: "thin",
+          scrollbarColor: "rgba(139, 148, 158, 0.5) transparent",
+          "&::-webkit-scrollbar": {
+            width: 10,
+            height: 10,
+          },
+          "&::-webkit-scrollbar-track": {
+            backgroundColor: "transparent",
+          },
+          "&::-webkit-scrollbar-thumb": {
+            minHeight: 28,
+            backgroundColor: "rgba(139, 148, 158, 0.5)",
+            backgroundClip: "padding-box",
+            border: "3px solid transparent",
+            borderRadius: 8,
+          },
+          "&::-webkit-scrollbar-thumb:hover": {
+            backgroundColor: "rgba(177, 186, 196, 0.72)",
+          },
+          "&::-webkit-scrollbar-corner": {
+            backgroundColor: "transparent",
+          },
+        },
+      },
+    },
     MuiTextField: { defaultProps: { size: "small" } },
     MuiSelect: { defaultProps: { size: "small" } },
   },

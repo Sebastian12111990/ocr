@@ -4,13 +4,44 @@ import OpenInFullIcon from "@mui/icons-material/OpenInFull";
 import { Box, CircularProgress, Dialog, DialogContent, DialogTitle, IconButton, Stack, Tooltip, Typography } from "@mui/material";
 import { useEffect, useRef, useState } from "react";
 
+import type { Candidato } from "@/features/candidatos/candidatos.types";
+
 interface Props {
   urlImagen: string | null;
   cargando: boolean;
   error: string | null;
+  candidatos: Candidato[];
 }
 
-export function LienzoImagen({ urlImagen, cargando, error }: Props) {
+const FORMATO_NUMERO = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 1 });
+
+function informacionCandidato(candidato: Candidato, indice: number) {
+  const ladoMinimo = Math.min(candidato.caja.ancho, candidato.caja.alto);
+  const ladoMaximo = Math.max(candidato.caja.ancho, candidato.caja.alto);
+  return (
+    <Stack spacing={0.25} sx={{ py: 0.25 }}>
+      <Typography variant="subtitle2">Candidato #{indice + 1}</Typography>
+      <Typography variant="caption">
+        Texto: {candidato.texto === null ? "OCR no disponible" : candidato.texto || "sin texto detectado"}
+      </Typography>
+      <Typography variant="caption">
+        Confianza: {candidato.confianza === null ? "—" : `${FORMATO_NUMERO.format(candidato.confianza)}%`}
+        {" · "}Coincidencia: {candidato.coincidencia === null ? "—" : `${FORMATO_NUMERO.format(candidato.coincidencia)}%`}
+      </Typography>
+      <Typography variant="caption">
+        Posición: x {candidato.caja.x}, y {candidato.caja.y}
+      </Typography>
+      <Typography variant="caption">
+        Lado mín.: {FORMATO_NUMERO.format(ladoMinimo)} px · Lado máx.: {FORMATO_NUMERO.format(ladoMaximo)} px
+      </Typography>
+      <Typography variant="caption">
+        Área total: {FORMATO_NUMERO.format(candidato.area)} px² · Ángulo: {FORMATO_NUMERO.format(candidato.caja.angulo)}°
+      </Typography>
+    </Stack>
+  );
+}
+
+export function LienzoImagen({ urlImagen, cargando, error, candidatos }: Props) {
   const [vistaAmpliada, setVistaAmpliada] = useState(false);
   const [posicion, setPosicion] = useState({ x: 0, y: 0 });
   const [sePuedeArrastrar, setSePuedeArrastrar] = useState(false);
@@ -86,21 +117,57 @@ export function LienzoImagen({ urlImagen, cargando, error }: Props) {
     >
       {urlImagen && (
         <Box
-          ref={imagenRef}
-          component="img"
-          src={urlImagen}
-          alt="Vista previa procesada"
-          draggable={false}
-          onLoad={actualizarCapacidadDeArrastre}
           sx={{
-            maxWidth: "none",
-            maxHeight: "none",
-            userSelect: "none",
+            position: "relative",
+            flexShrink: 0,
             cursor: sePuedeArrastrar ? (arrastre.current ? "grabbing" : "grab") : "default",
             transform: `translate(${posicion.x}px, ${posicion.y}px)`,
             transition: arrastre.current ? "none" : "transform 100ms ease-out",
           }}
-        />
+        >
+          <Box
+            ref={imagenRef}
+            component="img"
+            src={urlImagen}
+            alt="Vista previa procesada"
+            draggable={false}
+            onLoad={actualizarCapacidadDeArrastre}
+            sx={{ display: "block", maxWidth: "none", maxHeight: "none", userSelect: "none" }}
+          />
+          {candidatos.map((candidato, indice) => (
+            <Tooltip
+              key={`${candidato.caja.x}-${candidato.caja.y}-${indice}`}
+              arrow
+              followCursor
+              enterDelay={100}
+              title={informacionCandidato(candidato, indice)}
+              slotProps={{ tooltip: { sx: { maxWidth: 360 } } }}
+            >
+              <Box
+                tabIndex={0}
+                role="img"
+                aria-label={`Ver información del candidato ${indice + 1}`}
+                sx={{
+                  position: "absolute",
+                  left: candidato.caja.x,
+                  top: candidato.caja.y,
+                  width: Math.max(1, candidato.caja.ancho),
+                  height: Math.max(1, candidato.caja.alto),
+                  boxSizing: "border-box",
+                  border: "2px solid transparent",
+                  bgcolor: "transparent",
+                  cursor: "help",
+                  outline: "none",
+                  "&:hover, &:focus-visible": {
+                    borderColor: "warning.main",
+                    bgcolor: "rgba(245, 158, 11, 0.14)",
+                    boxShadow: "0 0 0 1px rgba(0, 0, 0, 0.65)",
+                  },
+                }}
+              />
+            </Tooltip>
+          ))}
+        </Box>
       )}
 
       {urlImagen && (

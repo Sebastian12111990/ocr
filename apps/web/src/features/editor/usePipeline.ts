@@ -57,6 +57,18 @@ function copiarEtapas(etapas: EtapaPipeline[]): EtapaPipeline[] {
   }));
 }
 
+function completarParametros(etapas: EtapaPipeline[], catalogo: RespuestaCatalogo): EtapaPipeline[] {
+  return etapas.map((etapa) => {
+    const definicion = catalogo.etapas.find((item) => item.tipo === etapa.tipo);
+    if (!definicion) return { ...etapa, parametros: { ...etapa.parametros } };
+
+    const defectos = Object.fromEntries(
+      definicion.parametros.map((parametro) => [parametro.nombre, parametro.defecto]),
+    );
+    return { ...etapa, parametros: { ...defectos, ...etapa.parametros } };
+  });
+}
+
 /**
  * Estado del pipeline en edición. Modo fijo y modo libre se guardan por
  * separado para que alternar entre ellos no se pierda lo que se armó en el
@@ -71,9 +83,12 @@ export function usePipeline(catalogo: RespuestaCatalogo | undefined) {
   );
 
   useEffect(() => {
-    if (catalogo && etapasFijo.length === 0) {
-      setEtapasFijo(catalogo.pipeline_por_defecto);
-    }
+    if (!catalogo) return;
+    setEtapasFijo((actuales) => completarParametros(
+      actuales.length === 0 ? catalogo.pipeline_por_defecto : actuales,
+      catalogo,
+    ));
+    setEtapasLibre((actuales) => completarParametros(actuales, catalogo));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalogo]);
 
@@ -135,10 +150,9 @@ export function usePipeline(catalogo: RespuestaCatalogo | undefined) {
   }
 
   function cargarEtapasLibres(etapasGuardadas: EtapaPipeline[]): void {
-    const copia = etapasGuardadas.map((etapa) => ({
-      ...etapa,
-      parametros: { ...etapa.parametros },
-    }));
+    const copia = catalogo
+      ? completarParametros(etapasGuardadas, catalogo)
+      : copiarEtapas(etapasGuardadas);
     setEtapasLibre(copia);
     setIdentidadesEtapasLibre(copia.map(() => crearIdentidadEtapa()));
     setModo("libre");
@@ -151,7 +165,9 @@ export function usePipeline(catalogo: RespuestaCatalogo | undefined) {
   }
 
   function cargarPipeline(pipelineGuardado: Pipeline): void {
-    const copia = copiarEtapas(pipelineGuardado.etapas);
+    const copia = catalogo
+      ? completarParametros(pipelineGuardado.etapas, catalogo)
+      : copiarEtapas(pipelineGuardado.etapas);
     if (pipelineGuardado.modo === "fijo") setEtapasFijo(copia);
     else {
       setEtapasLibre(copia);

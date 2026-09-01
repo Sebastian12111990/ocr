@@ -10,6 +10,7 @@ import {
   Chip,
   Divider,
   IconButton,
+  ListSubheader,
   MenuItem,
   Stack,
   TextField,
@@ -20,10 +21,11 @@ import {
 } from "@mui/material";
 import { DragDropContext, Draggable, Droppable, type DropResult } from "@hello-pangea/dnd";
 
-import type { RespuestaCatalogo } from "@/features/catalogo/catalogo.types";
+import type { EtapaCatalogo, RespuestaCatalogo } from "@/features/catalogo/catalogo.types";
 import type { ModoPipeline } from "../pipeline.types";
 import type { EtapaPipeline } from "../pipeline.types";
 import type { usePipeline } from "../usePipeline";
+import { AyudaEtapa } from "./AyudaEtapa";
 import { SeccionEtapa } from "./SeccionEtapa";
 
 interface Props {
@@ -42,6 +44,36 @@ interface BorradorPipeline {
 }
 
 const CLAVE_BORRADORES = "ocr.pipeline.borradores.v1";
+export const ANCHO_PANEL_CONTROLES = 440;
+
+const CATEGORIAS_ETAPAS = [
+  { id: "color", etiqueta: "Color y canales" },
+  { id: "suavizado", etiqueta: "Suavizado y reducción de ruido" },
+  { id: "umbral", etiqueta: "Umbralización" },
+  { id: "morfologia", etiqueta: "Morfología" },
+  { id: "bordes", etiqueta: "Bordes y gradientes" },
+  { id: "contornos", etiqueta: "Contornos y regiones" },
+  { id: "esquinas", etiqueta: "Esquinas y puntos de interés" },
+  { id: "transformacion", etiqueta: "Transformaciones geométricas" },
+] as const;
+
+function agruparEtapas(etapas: EtapaCatalogo[]) {
+  const conocidas = CATEGORIAS_ETAPAS.map((categoria) => ({
+    ...categoria,
+    etapas: etapas.filter((etapa) => etapa.categoria === categoria.id),
+  })).filter((categoria) => categoria.etapas.length > 0);
+
+  const idsConocidos = new Set<string>(CATEGORIAS_ETAPAS.map((categoria) => categoria.id));
+  const desconocidas = [...new Set(
+    etapas.filter((etapa) => !idsConocidos.has(etapa.categoria)).map((etapa) => etapa.categoria),
+  )].sort().map((id) => ({
+    id,
+    etiqueta: id,
+    etapas: etapas.filter((etapa) => etapa.categoria === id),
+  }));
+
+  return [...conocidas, ...desconocidas];
+}
 
 function cargarBorradores(): BorradorPipeline[] {
   try {
@@ -56,6 +88,7 @@ export function PanelControles({ catalogo, pipeline, imagenId, onCambiarImagen }
   const [mostrarBorrador, setMostrarBorrador] = useState(false);
   const [nombreBorrador, setNombreBorrador] = useState("");
   const [borradores, setBorradores] = useState<BorradorPipeline[]>(cargarBorradores);
+  const categoriasEtapas = agruparEtapas(catalogo.etapas);
   const {
     modo,
     setModo,
@@ -143,10 +176,10 @@ export function PanelControles({ catalogo, pipeline, imagenId, onCambiarImagen }
           sx={{
             position: "fixed",
             top: 49,
-            right: 380,
+            right: ANCHO_PANEL_CONTROLES,
             bottom: 0,
             width: 360,
-            maxWidth: "calc(100vw - 380px)",
+            maxWidth: `calc(100vw - ${ANCHO_PANEL_CONTROLES}px)`,
             zIndex: (tema) => tema.zIndex.drawer,
             bgcolor: "background.paper",
             borderLeft: 1,
@@ -232,12 +265,25 @@ export function PanelControles({ catalogo, pipeline, imagenId, onCambiarImagen }
             if (definicion) agregarEtapa(definicion);
           }}
           fullWidth
+          slotProps={{
+            select: {
+              MenuProps: { slotProps: { paper: { sx: { maxHeight: 420 } } } },
+            },
+          }}
         >
-          {catalogo.etapas.map((definicion) => (
-            <MenuItem key={definicion.tipo} value={definicion.tipo}>
-              {definicion.etiqueta}
-            </MenuItem>
-          ))}
+          {categoriasEtapas.flatMap((categoria) => [
+              <ListSubheader key={`categoria-${categoria.id}`} sx={{ fontWeight: 700, lineHeight: "34px" }}>
+                {categoria.etiqueta}
+              </ListSubheader>,
+              ...categoria.etapas.map((definicion) => (
+                <MenuItem key={definicion.tipo} value={definicion.tipo} sx={{ pl: 3 }}>
+                  <Typography variant="body2" sx={{ flex: 1 }}>
+                    {definicion.etiqueta}
+                  </Typography>
+                  <AyudaEtapa tipo={definicion.tipo} titulo={definicion.etiqueta} />
+                </MenuItem>
+              )),
+          ])}
         </TextField>
       )}
 

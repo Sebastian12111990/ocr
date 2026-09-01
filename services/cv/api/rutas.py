@@ -38,13 +38,18 @@ def imagenes():
     return listar_imagenes()
 
 
-def _procesar(solicitud: SolicitudPipeline):
+def _cargar_solicitud(solicitud: SolicitudPipeline):
     try:
         imagen = cargar_imagen(solicitud.ruta)
     except (FileNotFoundError, ValueError) as error:
         raise HTTPException(status_code=404, detail=str(error))
 
     etapas = [etapa.model_dump() for etapa in solicitud.etapas]
+    return imagen, etapas
+
+
+def _procesar(solicitud: SolicitudPipeline):
+    imagen, etapas = _cargar_solicitud(solicitud)
     try:
         return ejecutar_pipeline(imagen, etapas)
     except Exception as error:  # se traduce a 400: parámetros inválidos del cliente
@@ -79,6 +84,27 @@ def ocr(solicitud: SolicitudPipeline):
 
 @router.post("/candidatos", response_model=RespuestaCandidatos)
 def candidatos(solicitud: SolicitudCandidatos):
-    resultado = _procesar(solicitud)
-    lista = obtener_candidatos(resultado, solicitud.parametros_deteccion, limite=solicitud.limite)
+    imagen, etapas = _cargar_solicitud(solicitud)
+
+    # Los recortes deben salir exactamente de la misma imagen y parámetros
+    # que usa la última etapa activa "rectangulos" para pintar en verde. Se
+    # ejecuta solo el prefijo anterior, evitando detectar otra vez sobre las
+    # propias marcas verdes.
+    indices_rectangulos = [
+        indice for indice, etapa in enumerate(etapas)
+        if etapa["tipo"] == "rectangulos" and etapa.get("activa", True)
+    ]
+    try:
+        if indices_rectangulos:
+            indice_rectangulos = indices_rectangulos[-1]
+            imagen_deteccion = ejecutar_pipeline(imagen, etapas[:indice_rectangulos])
+            parametros_etapa = etapas[indice_rectangulos].get("parametros", {})
+            parametros = {**parametros_etapa, **solicitud.parametros_deteccion}
+        else:
+            imagen_deteccion = ejecutar_pipeline(imagen, etapas)
+            parametros = solicitud.parametros_deteccion
+
+        lista = obtener_candidatos(imagen_deteccion, parametros, limite=solicitud.limite)
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=str(error))
     return RespuestaCandidatos(candidatos=lista)

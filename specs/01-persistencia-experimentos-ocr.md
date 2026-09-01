@@ -3,15 +3,15 @@
 > **Estado:** Aprobado
 > **Depende de:** Ninguna
 > **Fecha:** 2026-08-26
-> **Objetivo:** Guardar y restaurar ejecuciones OCR reproducibles con su pipeline ordenado, imagen procesada y candidatos válidos.
+> **Objetivo:** Guardar y restaurar ejecuciones OCR reproducibles con su pipeline ordenado, imagen procesada y todos los candidatos detectados.
 
 ## Alcance
 
 **Incluye:**
 
 - Guardar manualmente una nueva `ejecucion` cuando OCR y candidatos estén actualizados.
-- Exigir al menos un candidato con coincidencia `≥20%`.
-- Guardar únicamente candidatos con coincidencia `≥20%`.
+- Exigir al menos un candidato detectado.
+- Guardar todos los candidatos, incluidos los que no tengan texto o tengan coincidencia baja.
 - Persistir modo, orden, repeticiones, estado y parámetros de todas las etapas.
 - Guardar resultado OCR, estadísticas, imagen procesada y recortes PNG.
 - Invalidar resultados cuando cambie el pipeline.
@@ -23,7 +23,6 @@
 **Fuera de alcance:**
 
 - Ejecutar OCR o candidatos automáticamente al guardar.
-- Guardar candidatos con coincidencia inferior al `20%`.
 - Eliminar, modificar o sobrescribir ejecuciones históricas.
 - Migrar o eliminar la tabla `preset` existente.
 
@@ -76,7 +75,7 @@
 | `ancho`, `alto` | integer | Dimensiones |
 | `angulo` | real | Inclinación |
 | `area` | real | Área detectada |
-| `texto` | varchar | Lectura Tesseract |
+| `texto` | varchar nullable | Lectura Tesseract; `null` cuando no estuvo disponible |
 | `confianza` | real nullable | Confianza OCR |
 | `coincidencia` | real | Similitud con la patente |
 | `imagen_png` | bytea | Recorte histórico |
@@ -84,7 +83,7 @@
 Reglas:
 
 - `candidato_ejecucion` usa borrado en cascada con `ejecucion`.
-- `coincidencia` debe ser `≥20`.
+- `coincidencia` debe estar entre `0` y `100`.
 - Cada ejecución y su tasa de coincidencia son inmutables.
 - La configuración guardada es un snapshot y nunca se actualiza.
 - El frontend conserva una huella del pipeline usado para OCR y candidatos; cualquier cambio invalida ambos resultados.
@@ -93,7 +92,7 @@ Reglas:
 
 1. Crear una migración que amplíe `ejecucion` y agregue `candidato_ejecucion`.
 2. Crear la entidad `CandidatoEjecucion` y sus relaciones TypeORM.
-3. Agregar a la API una operación transaccional para guardar la ejecución y candidatos `≥20%`.
+3. Agregar a la API una operación transaccional para guardar la ejecución y todos sus candidatos.
 4. Ampliar `GET /api/ejecuciones` y agregar el detalle necesario para restaurar una ejecución.
 5. Incorporar en el frontend el estado de validez de OCR y candidatos, invalidándolo al cambiar pipeline o patente.
 6. Reemplazar el guardado de presets por el botón manual “Guardar ejecución”, habilitado solo cuando se cumplan las validaciones.
@@ -107,8 +106,8 @@ Reglas:
 - [ ] Cambiar cualquier etapa o parámetro invalida OCR y candidatos.
 - [ ] “Guardar ejecución” no ejecuta CV ni OCR.
 - [ ] El botón permanece deshabilitado hasta ejecutar manualmente OCR y candidatos.
-- [ ] El botón permanece deshabilitado si ningún candidato alcanza `20%`.
-- [ ] Solo se guardan candidatos con coincidencia `≥20%`.
+- [ ] El botón permanece deshabilitado si la búsqueda no detecta candidatos.
+- [ ] Se guardan todos los candidatos, incluido texto nulo y coincidencia `0%`.
 - [ ] Cada guardado crea una ejecución nueva e inmutable.
 - [ ] No existen operaciones de edición de resultados guardados.
 - [ ] El modo libre conserva orden, repeticiones y parámetros.
@@ -129,7 +128,7 @@ Reglas:
 | Crear `candidato_ejecucion` | Permite estadísticas y recortes por candidato |
 | Guardado exclusivamente manual | El usuario controla cuándo una prueba es relevante |
 | No reprocesar al guardar o cargar | Conserva exactamente el resultado observado |
-| Guardar solo candidatos `≥20%` | Descarta lecturas sin utilidad experimental |
+| Guardar todos los candidatos | Conserva positivos difíciles, falsos positivos y fallos OCR para análisis y ML |
 | Guardar el pipeline como JSONB ordenado | Conserva orden, repeticiones y parámetros |
 | Guardar PNG en `bytea` | Mantiene snapshots independientes del sistema de archivos |
 | Crear una fila inmutable por guardado | Conserva el historial absoluto de pruebas |
@@ -138,7 +137,7 @@ Reglas:
 
 Alternativas descartadas:
 
-- Guardar todos los candidatos.
+- Guardar solo candidatos por encima de un umbral.
 - Sobrescribir o editar ejecuciones anteriores.
 - Regenerar imágenes y candidatos al cargar.
 - Ejecutar OCR automáticamente al guardar.
@@ -148,7 +147,7 @@ Alternativas descartadas:
 
 | Riesgo | Mitigación |
 |---|---|
-| Crecimiento de PostgreSQL por los PNG | Comprimir como PNG y guardar solo candidatos `≥20%` |
+| Crecimiento de PostgreSQL por los PNG | Comprimir como PNG y limitar la cantidad obtenida por ejecución |
 | Resultados asociados a un pipeline modificado | Invalidar OCR y candidatos ante cualquier cambio |
 | Cambios futuros en algoritmos CV | Guardar `pipeline_version` y el snapshot visual |
 | Ejecuciones incompletas por fallos parciales | Guardar ejecución y candidatos en una transacción |
@@ -159,7 +158,6 @@ Alternativas descartadas:
 - Eliminación de ejecuciones históricas.
 - Edición o sobrescritura de resultados guardados.
 - Ejecución automática de OCR o candidatos.
-- Persistencia de candidatos con coincidencia inferior al `20%`.
 - Eliminación o migración de la tabla `preset`.
 - Comparación gráfica entre múltiples ejecuciones.
 - Exportación de resultados a CSV, Excel o PDF.

@@ -11,7 +11,7 @@ import { SelectorEjecuciones } from "@/features/resultados/components/SelectorEj
 import type { DetalleEjecucion, ResultadoOcrManual } from "@/features/resultados/resultados.types";
 import { base64ABlob } from "@/shared/utils/base64";
 import { LienzoImagen } from "../components/LienzoImagen";
-import { PanelControles } from "../components/PanelControles";
+import { ANCHO_PANEL_CONTROLES, PanelControles } from "../components/PanelControles";
 import { crearHuellaProcesamiento } from "../huellaProcesamiento";
 import type { Pipeline, ValorParametro } from "../pipeline.types";
 import {
@@ -98,7 +98,10 @@ function prepararEjecucion(
 
     for (const parametro of definicion.parametros) {
       const valor = etapa.parametros[parametro.nombre];
-      if (valor === undefined || !parametroCompatible(valor, parametro)) {
+      // Los parámetros añadidos en versiones posteriores del catálogo usan
+      // su valor por defecto al restaurar snapshots históricos.
+      if (valor === undefined) continue;
+      if (!parametroCompatible(valor, parametro)) {
         throw new Error(
           `El parámetro «${parametro.nombre}» de la etapa «${etapa.tipo}» no es compatible`,
         );
@@ -114,7 +117,16 @@ function prepararEjecucion(
     }
   }
 
-  const pipeline = copiarPipeline(detalle.pipeline);
+  const pipeline: Pipeline = {
+    modo: detalle.pipeline.modo,
+    etapas: detalle.pipeline.etapas.map((etapa) => {
+      const definicion = catalogo.etapas.find((item) => item.tipo === etapa.tipo)!;
+      const defectos = Object.fromEntries(
+        definicion.parametros.map((parametro) => [parametro.nombre, parametro.defecto]),
+      );
+      return { ...etapa, parametros: { ...defectos, ...etapa.parametros } };
+    }),
+  };
   const huella = crearHuellaProcesamiento(detalle.imagen.id, pipeline);
   if (!huella) throw new Error("La ejecución guardada no está asociada a una imagen");
 
@@ -317,7 +329,12 @@ export function EditorPage() {
             </Box>
           </Stack>
           <Box sx={{ height: 480, flexShrink: 0 }}>
-            <LienzoImagen urlImagen={urlImagen} cargando={cargando} error={error} />
+            <LienzoImagen
+              urlImagen={urlImagen}
+              cargando={cargando}
+              error={error}
+              candidatos={candidatos ?? []}
+            />
           </Box>
           <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1 }}>
             <PanelCandidatos
@@ -331,7 +348,14 @@ export function EditorPage() {
           </Box>
         </Stack>
 
-        <Box sx={{ width: 380, borderLeft: 1, borderColor: "divider", display: "flex", flexDirection: "column" }}>
+        <Box sx={{
+          width: ANCHO_PANEL_CONTROLES,
+          flexShrink: 0,
+          borderLeft: 1,
+          borderColor: "divider",
+          display: "flex",
+          flexDirection: "column",
+        }}>
           <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
             <PanelControles
               catalogo={catalogo}

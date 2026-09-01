@@ -47,7 +47,7 @@ interface DetalleApi {
   imagenProcesadaPngBase64: string;
   candidatos: Array<{
     orden: number;
-    texto: string;
+    texto: string | null;
     coincidencia: number;
     imagenPngBase64: string;
   }>;
@@ -69,7 +69,7 @@ async function solicitar<T>(baseUrl: string, ruta: string, init?: RequestInit): 
   return { estado: respuesta.status, cuerpo: cuerpo as T, texto };
 }
 
-function candidato(texto: string, coincidencia: number | null, imagenPngBase64 = PNG_1X1) {
+function candidato(texto: string | null, coincidencia: number | null, imagenPngBase64 = PNG_1X1) {
   return {
     caja: { x: 12, y: 18, ancho: 90, alto: 32, angulo: 4.5 },
     area: 2880,
@@ -92,7 +92,7 @@ function cuerpoGuardado(imagenId: string, pipeline: Pipeline, patenteEsperada: s
     imagenProcesadaPngBase64: PNG_1X1,
     candidatos: [
       candidato(patenteEsperada, 0),
-      candidato("!!!!!!!!", 100),
+      candidato(null, 100),
       candidato(patenteEsperada.slice(0, -1), null),
     ],
   };
@@ -159,7 +159,7 @@ async function principal(): Promise<void> {
     });
     assert.equal(primerGuardado.estado, 201, primerGuardado.texto);
     idsTemporales.push(primerGuardado.cuerpo.id);
-    assert.equal(primerGuardado.cuerpo.candidatosGuardados, 2);
+    assert.equal(primerGuardado.cuerpo.candidatosGuardados, 3);
     assert.equal(primerGuardado.cuerpo.mejorCoincidencia, 100);
 
     const detalleLibre = await solicitar<DetalleApi>(
@@ -169,8 +169,9 @@ async function principal(): Promise<void> {
     assert.equal(detalleLibre.estado, 200, detalleLibre.texto);
     assert.equal(detalleLibre.cuerpo.pipelineVersion, 1);
     assert.deepEqual(detalleLibre.cuerpo.pipeline, pipelineLibre);
-    assert.deepEqual(detalleLibre.cuerpo.candidatos.map(({ orden }) => orden), [0, 2]);
-    assert.ok(detalleLibre.cuerpo.candidatos.every(({ coincidencia }) => coincidencia >= 20));
+    assert.deepEqual(detalleLibre.cuerpo.candidatos.map(({ orden }) => orden), [0, 1, 2]);
+    assert.equal(detalleLibre.cuerpo.candidatos[1]?.texto, null);
+    assert.equal(detalleLibre.cuerpo.candidatos[1]?.coincidencia, 0);
     assert.ok(detalleLibre.cuerpo.candidatos.every(({ imagenPngBase64 }) => imagenPngBase64 === PNG_1X1));
     assert.equal(detalleLibre.cuerpo.imagenProcesadaPngBase64, PNG_1X1);
 
@@ -231,17 +232,22 @@ async function principal(): Promise<void> {
       );
     }
 
-    const cantidadAntesDeFallos = listado.cuerpo.length;
+    const cantidadAntesDeGuardadoSinCoincidencias = listado.cuerpo.length;
     const sinCoincidencias = {
       ...payloadLibre,
       candidatos: [candidato("!!!!!!!!", 100)],
     };
-    const rechazoSinCoincidencias = await solicitar<unknown>(baseUrl, "/api/ejecuciones", {
+    const guardadoSinCoincidencias = await solicitar<GuardadoApi>(baseUrl, "/api/ejecuciones", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(sinCoincidencias),
     });
-    assert.equal(rechazoSinCoincidencias.estado, 400, rechazoSinCoincidencias.texto);
+    assert.equal(guardadoSinCoincidencias.estado, 201, guardadoSinCoincidencias.texto);
+    idsTemporales.push(guardadoSinCoincidencias.cuerpo.id);
+    assert.equal(guardadoSinCoincidencias.cuerpo.mejorCoincidencia, 0);
+    assert.equal(guardadoSinCoincidencias.cuerpo.candidatosGuardados, 1);
+
+    const cantidadAntesDeFallos = cantidadAntesDeGuardadoSinCoincidencias + 1;
 
     const falloTransaccional = {
       ...payloadLibre,
@@ -283,8 +289,8 @@ async function principal(): Promise<void> {
     console.log("✓ migración disponible y API iniciada sobre PostgreSQL real");
     console.log("✓ identificadores inválidos se rechazan con 400");
     console.log("✓ cada guardado crea una ejecución nueva e inmutable");
-    console.log("✓ solo persisten candidatos cuya coincidencia recalculada es ≥20%");
-    console.log("✓ el límite exacto de 20% se conserva");
+    console.log("✓ persisten todos los candidatos en su orden original");
+    console.log("✓ texto nulo y coincidencia de 0% se conservan para experimentación");
     console.log("✓ un PNG con CRC corrupto revierte la transacción completa");
     console.log("✓ los textos excesivos se rechazan antes de calcular Levenshtein");
     console.log("✓ modo libre conserva orden, repeticiones, estado y parámetros");

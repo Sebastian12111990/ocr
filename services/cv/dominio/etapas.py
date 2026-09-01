@@ -85,7 +85,9 @@ def rectangulos(imagen: np.ndarray, parametros: dict) -> np.ndarray:
         angulo_maximo=float(parametros.get("angulo_maximo", 25)),
         umbral_bajo=int(parametros.get("umbral_bajo", 50)),
         umbral_alto=int(parametros.get("umbral_alto", 150)),
-    )
+        modo_recuperacion=str(parametros.get("modo_recuperacion", "RETR_LIST")),
+        metodo_aproximacion=str(parametros.get("metodo_aproximacion", "CHAIN_APPROX_SIMPLE")),
+    )[:20]
     canvas = a_color(imagen)
     grosor_linea = max(1, min(10, int(parametros.get("grosor_linea", 1))))
     for candidato in candidatos:
