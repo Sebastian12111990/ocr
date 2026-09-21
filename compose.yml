@@ -1,5 +1,4 @@
 name: ocr
-
 services:
   postgres:
     image: postgres:18.4
@@ -26,7 +25,7 @@ services:
     working_dir: /workspace
     volumes:
       - ./services/yolo:/workspace
-      - '${YOLO_IMAGENES_DIR:-D:\imagenes - copia}:/data/patentes:ro'
+      - '${YOLO_IMAGENES_DIR:-D:\DataSet}:/data/patentes:ro'
       - '${YOLO_DATASET_DIR:-D:\patentes Data Set}:/data/patentes_dataset'
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
