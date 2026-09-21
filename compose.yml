@@ -20,5 +20,26 @@ services:
       retries: 10
       start_period: 10s
 
+  yolo:
+    image: ultralytics/ultralytics:latest
+    container_name: ocr-yolo
+    working_dir: /workspace
+    volumes:
+      - ./services/yolo:/workspace
+      - '${YOLO_IMAGENES_DIR:-D:\imagenes - copia}:/data/patentes:ro'
+      - '${YOLO_DATASET_DIR:-D:\patentes Data Set}:/data/patentes_dataset'
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    shm_size: '2gb'
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    stdin_open: true
+    tty: true
+
 volumes:
   postgres_data:

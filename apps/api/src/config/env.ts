@@ -8,6 +8,7 @@ const esquemaEntorno = z.object({
   POSTGRES_PASSWORD: z.string(),
   POSTGRES_DB: z.string(),
   URL_SERVICIO_CV: z.string().url().default("http://localhost:8000"),
+  RUTA_DATASET_YOLO: z.string().default("D:\\patentes Data Set"),
 });
 
 export const entorno = esquemaEntorno.parse(process.env);

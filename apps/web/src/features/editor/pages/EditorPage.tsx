@@ -274,14 +274,14 @@ export function EditorPage() {
 
   if (cargandoCatalogo || !catalogo) {
     return (
-      <Stack sx={{ height: "100vh", alignItems: "center", justifyContent: "center" }}>
+      <Stack sx={{ height: "100%", alignItems: "center", justifyContent: "center" }}>
         <CircularProgress />
       </Stack>
     );
   }
 
   return (
-    <Stack sx={{ height: "100vh" }}>
+    <Stack sx={{ height: "100%" }}>
       <AppBar position="static" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: "divider" }}>
         <Toolbar variant="dense" sx={{ gap: 1.25, minWidth: 0 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>

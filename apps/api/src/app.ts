@@ -7,6 +7,8 @@ import { TIPOS } from "./contenedor/tipos.js";
 import { crearRutasCandidatos } from "./features/candidatos/candidatos.routes.js";
 import { crearRutasCatalogo } from "./features/catalogo/catalogo.routes.js";
 import { crearRutasEjecuciones } from "./features/ejecuciones/ejecuciones.routes.js";
+import { crearRutasEntrenamientos } from "./features/entrenamientos/entrenamientos.routes.js";
+import { crearRutasDataset } from "./features/dataset/dataset.routes.js";
 import { crearRutasImagenes } from "./features/imagenes/imagenes.routes.js";
 import { crearRutasOcr } from "./features/ocr/ocr.routes.js";
 import { crearRutasPresets } from "./features/presets/presets.routes.js";
@@ -40,6 +42,8 @@ export function crearApp(contenedor: Container, fuenteDatos: DataSource): Expres
   app.use("/api/presets", crearRutasPresets(contenedor));
   app.use("/api/ejecuciones", crearRutasEjecuciones(contenedor));
   app.use("/api/candidatos", crearRutasCandidatos(contenedor));
+  app.use("/api/entrenamientos", crearRutasEntrenamientos(contenedor));
+  app.use("/api/dataset", crearRutasDataset(contenedor));
 
   app.use(middlewareError);
 
