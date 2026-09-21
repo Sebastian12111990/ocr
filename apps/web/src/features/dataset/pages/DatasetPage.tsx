@@ -40,7 +40,7 @@ const DESCRIPCIONES: Record<Vista, string> = {
   dataset:
     "El sondeo inicial (COCO) detectó un vehículo en la imagen y el detector de patentes confirmó una placa. Las que no tienen patente están en \"Falsos positivos\".",
   vehiculos_sin_patente:
-    "Vehículo detectado, pero el detector de patentes no encontró ninguna placa en la imagen. Marcá el motivo (brillo, suciedad, etc.) - al marcarla pasa a \"Casos difíciles\" y sale de esta cola.",
+    "Vehículo detectado, pero el detector de patentes no encontró ninguna placa en la imagen. Marcá el motivo (brillo, suciedad, etc.) — al marcarla pasa a \"Casos difíciles\" y sale de esta cola.",
   sin_vehiculo_con_patente:
     "El sondeo no reconoció un vehículo, pero el detector de patentes sí encontró una placa. Revisá cada caso: Aceptar la manda a \"Patente detectadas\", Descartar la manda a \"Descartadas\".",
   patente_sin_vehiculo:
@@ -48,7 +48,7 @@ const DESCRIPCIONES: Record<Vista, string> = {
   descartadas:
     "Nada se borra del disco: esto solo excluye la imagen de la cola de revisión. Podés recuperarla si te equivocaste.",
   sin_deteccion:
-    "Vehículo detectado pero sin patente encontrada. Marcá el motivo (brillo, suciedad, etc.) - al marcarla pasa a \"Casos difíciles\" y sale de esta cola.",
+    "Vehículo detectado pero sin patente encontrada. Marcá el motivo (brillo, suciedad, etc.) — al marcarla pasa a \"Casos difíciles\" y sale de esta cola.",
   casos_dificiles:
     "Todo lo marcado como caso difícil, venga de \"Falsos positivos\" o de \"Sin detección de patente\". Nada se borra del disco: podés quitar la etiqueta para que vuelva a su cola de origen.",
 };

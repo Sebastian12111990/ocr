@@ -5,61 +5,51 @@ import { MetricaEpoca } from "../src/features/entrenamientos/metrica-epoca.entid
 import { fuenteDatos } from "../src/infraestructura/fuente-datos.js";
 
 /**
- * Backfill único de las 3 corridas reales de YOLO hechas antes de que existiera
- * esta tabla (sondeo batch, auto-etiquetado, mini-entrenamiento coco128).
- * Idempotente: si ya existe una fila con el mismo nombre, no la duplica.
+ * Carga como filas históricas las 3 corridas de YOLO que ya se ejecutaron
+ * contra el dataset real de patentes, antes de que este servicio existiera
+ * en `ocr` (ver SPEC 02). Se corre una sola vez — no es idempotente a
+ * propósito, cada corrida real es un hecho que pasó una sola vez.
  */
 async function principal(): Promise<void> {
   await fuenteDatos.initialize();
+
   const repositorioEntrenamiento = fuenteDatos.getRepository(EntrenamientoYolo);
   const repositorioMetrica = fuenteDatos.getRepository(MetricaEpoca);
 
-  const sondeo = await guardarSiNoExiste(repositorioEntrenamiento, {
+  const sondeo = await repositorioEntrenamiento.save(repositorioEntrenamiento.create({
     nombre: "Sondeo batch — dataset patentes",
     tipo: "sondeo",
     modeloBase: "yolo11n.pt",
     parametros: {
       fuente: "D:\\imagenes - copia",
       conteoClases: {
-        car: 2319,
-        truck: 2892,
-        bus: 885,
-        train: 189,
-        person: 1768,
-        traffic_light: 107,
-        parking_meter: 136,
-        clock: 30,
-        bottle: 31,
-        toilet: 32,
-        airplane: 31,
-        suitcase: 47,
-        surfboard: 29,
+        truck: 2892, car: 2319, person: 1768, bus: 885, train: 189,
+        parking_meter: 136, traffic_light: 107, suitcase: 47, toilet: 32,
+        airplane: 31, bottle: 31, clock: 30, surfboard: 29,
       },
     },
     metricasFinales: null,
     totalImagenes: 3964,
     imagenesConDeteccion: 3496,
     rutaPesos: null,
-    duracionMs: 115000,
-  });
+    duracionMs: 115_000,
+  }));
+  console.log(`Sondeo cargado: ${sondeo.id}`);
 
-  const autoEtiquetado = await guardarSiNoExiste(repositorioEntrenamiento, {
+  const autoEtiquetado = await repositorioEntrenamiento.save(repositorioEntrenamiento.create({
     nombre: "Auto-etiquetado — license-plate-finetune-v1m",
     tipo: "auto_etiquetado",
     modeloBase: "license-plate-finetune-v1m.pt",
-    parametros: {
-      fuenteModelo: "morsetechlab/yolov11-license-plate-detection",
-      licencia: "AGPL-3.0",
-      confThreshold: 0.4,
-    },
+    parametros: { confThreshold: 0.4, licencia: "AGPL-3.0", fuenteModelo: "morsetechlab/yolov11-license-plate-detection" },
     metricasFinales: null,
     totalImagenes: 3964,
     imagenesConDeteccion: 3197,
     rutaPesos: null,
-    duracionMs: 90000,
-  });
+    duracionMs: 90_000,
+  }));
+  console.log(`Auto-etiquetado cargado: ${autoEtiquetado.id}`);
 
-  const miniEntrenamiento = await guardarSiNoExiste(repositorioEntrenamiento, {
+  const entrenamiento = await repositorioEntrenamiento.save(repositorioEntrenamiento.create({
     nombre: "Mini-entrenamiento — coco128",
     tipo: "entrenamiento",
     modeloBase: "yolo11n.pt",
@@ -68,36 +58,21 @@ async function principal(): Promise<void> {
     totalImagenes: 128,
     imagenesConDeteccion: null,
     rutaPesos: "runs/detect/train_coco128/weights/best.pt",
-    duracionMs: 10800,
-  });
+    duracionMs: 10_800,
+  }));
+  console.log(`Entrenamiento cargado: ${entrenamiento.id}`);
 
   const metricasPorEpoca = [
-    { epoca: 1, boxLoss: 1.196, clsLoss: 1.247, dflLoss: 1.207, map50: 0.674, map5095: 0.506, precision: 0.718, recall: 0.572 },
-    { epoca: 2, boxLoss: 1.18, clsLoss: 1.248, dflLoss: 1.199, map50: 0.69, map5095: 0.507, precision: 0.704, recall: 0.635 },
-    { epoca: 3, boxLoss: 1.106, clsLoss: 1.147, dflLoss: 1.149, map50: 0.696, map5095: 0.514, precision: 0.724, recall: 0.622 },
+    { epoca: 1, boxLoss: 1.196, clsLoss: 1.247, dflLoss: 1.207, precision: 0.718, recall: 0.572, map50: 0.674, map5095: 0.506 },
+    { epoca: 2, boxLoss: 1.18, clsLoss: 1.248, dflLoss: 1.199, precision: 0.704, recall: 0.635, map50: 0.69, map5095: 0.507 },
+    { epoca: 3, boxLoss: 1.106, clsLoss: 1.147, dflLoss: 1.149, precision: 0.724, recall: 0.622, map50: 0.696, map5095: 0.514 },
   ];
-  for (const datos of metricasPorEpoca) {
-    const existente = await repositorioMetrica.findOne({
-      where: { entrenamiento: { id: miniEntrenamiento.id }, epoca: datos.epoca },
-    });
-    if (existente) continue;
-    await repositorioMetrica.save(repositorioMetrica.create({ ...datos, entrenamiento: miniEntrenamiento }));
-  }
-
-  console.log(`✓ sondeo: ${sondeo.id}`);
-  console.log(`✓ auto-etiquetado: ${autoEtiquetado.id}`);
-  console.log(`✓ mini-entrenamiento: ${miniEntrenamiento.id} (${metricasPorEpoca.length} épocas)`);
+  await repositorioMetrica.save(
+    metricasPorEpoca.map((metrica) => repositorioMetrica.create({ ...metrica, entrenamiento })),
+  );
+  console.log(`${metricasPorEpoca.length} filas de metrica_epoca cargadas`);
 
   await fuenteDatos.destroy();
-}
-
-async function guardarSiNoExiste(
-  repositorio: ReturnType<typeof fuenteDatos.getRepository<EntrenamientoYolo>>,
-  datos: Omit<EntrenamientoYolo, "id" | "creadoEn" | "metricasPorEpoca">,
-): Promise<EntrenamientoYolo> {
-  const existente = await repositorio.findOne({ where: { nombre: datos.nombre } });
-  if (existente) return existente;
-  return repositorio.save(repositorio.create(datos));
 }
 
 principal().catch((error: unknown) => {

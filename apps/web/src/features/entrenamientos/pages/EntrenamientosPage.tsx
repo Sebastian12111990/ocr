@@ -13,139 +13,95 @@ import {
 } from "@mui/material";
 
 import { GraficoMetricas } from "../components/GraficoMetricas";
-import { ListaEntrenamientos } from "../components/ListaEntrenamientos";
+import { TablaEntrenamientos } from "../components/TablaEntrenamientos";
 import {
   useListarEntrenamientosQuery,
-  useObtenerDetalleEntrenamientoQuery,
   useObtenerMetricasEntrenamientoQuery,
 } from "../entrenamientosApi";
-import type { TipoEntrenamientoYolo } from "../entrenamientos.types";
+import type { ResumenEntrenamiento, TipoEntrenamientoYolo } from "../entrenamientos.types";
 
 export function EntrenamientosPage() {
-  const [parametros] = useSearchParams();
-  const tipo = parametros.get("tipo") as TipoEntrenamientoYolo | "" | null;
+  const [searchParams] = useSearchParams();
+  const tipoFiltro = searchParams.get("tipo") as TipoEntrenamientoYolo | null;
 
-  const { data: entrenamientos, isLoading } = useListarEntrenamientosQuery();
-  const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null);
+  const { data: entrenamientos, isLoading, isError } = useListarEntrenamientosQuery();
+  const [seleccionado, setSeleccionado] = useState<ResumenEntrenamiento | null>(null);
 
-  const filtrados = useMemo(() => {
-    if (!entrenamientos) return [];
-    if (!tipo) return entrenamientos;
-    return entrenamientos.filter((entrenamiento) => entrenamiento.tipo === tipo);
-  }, [entrenamientos, tipo]);
+  const entrenamientosFiltrados = useMemo(
+    () => (tipoFiltro ? (entrenamientos ?? []).filter((e) => e.tipo === tipoFiltro) : entrenamientos ?? []),
+    [entrenamientos, tipoFiltro],
+  );
 
   useEffect(() => {
-    if (filtrados.length === 0) {
-      setSeleccionadoId(null);
-      return;
-    }
-    if (!filtrados.some((entrenamiento) => entrenamiento.id === seleccionadoId)) {
-      setSeleccionadoId(filtrados[0]!.id);
-    }
-  }, [filtrados, seleccionadoId]);
+    setSeleccionado(entrenamientosFiltrados[0] ?? null);
+  }, [entrenamientosFiltrados]);
 
-  const { data: detalle } = useObtenerDetalleEntrenamientoQuery(seleccionadoId ?? "", { skip: !seleccionadoId });
-  const { data: metricas, isFetching: cargandoMetricas } = useObtenerMetricasEntrenamientoQuery(seleccionadoId ?? "", {
-    skip: !seleccionadoId || detalle?.tipo !== "entrenamiento",
-  });
+  const { data: metricas, isFetching: cargandoMetricas } = useObtenerMetricasEntrenamientoQuery(
+    seleccionado?.id ?? "",
+    { skip: !seleccionado },
+  );
 
   return (
     <Stack sx={{ height: "100%" }}>
       <AppBar position="static" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: "divider" }}>
         <Toolbar variant="dense">
           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-            Entrenamientos YOLO
+            Visualizador de entrenamientos YOLO
           </Typography>
         </Toolbar>
       </AppBar>
 
-      <Box sx={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        <Box sx={{ width: 380, overflow: "auto", borderRight: 1, borderColor: "divider" }}>
-          {isLoading ? (
-            <Box sx={{ p: 2.5 }}>
-              <CircularProgress size={24} />
-            </Box>
-          ) : (
-            <ListaEntrenamientos
-              entrenamientos={filtrados}
-              seleccionadoId={seleccionadoId}
-              onSeleccionar={setSeleccionadoId}
-            />
-          )}
-        </Box>
+      <Box sx={{ p: 2.5, overflow: "auto", flex: 1 }}>
+        {isLoading && <CircularProgress size={24} />}
+        {isError && (
+          <Typography variant="body2" color="error">
+            No se pudieron cargar los entrenamientos.
+          </Typography>
+        )}
 
-        <Box sx={{ flex: 1, overflow: "auto", p: 2.5 }}>
-          {!detalle && (
-            <Typography variant="body2" sx={{ color: "text.secondary" }}>
-              Seleccioná una corrida de la lista para ver el detalle.
-            </Typography>
-          )}
+        {entrenamientos && (
+          <Stack spacing={2.5}>
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <TablaEntrenamientos
+                entrenamientos={entrenamientosFiltrados}
+                seleccionadoId={seleccionado?.id ?? null}
+                onSeleccionar={setSeleccionado}
+              />
+            </Paper>
 
-          {detalle && (
-            <Stack spacing={2.5}>
+            {seleccionado && (
               <Paper variant="outlined" sx={{ p: 2 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  {detalle.nombre}
-                </Typography>
-                <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                  {detalle.modeloBase} · creado {new Date(detalle.creadoEn).toLocaleString("es-CL")}
-                </Typography>
+                <Stack spacing={1.5}>
+                  <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                      {seleccionado.nombre}
+                    </Typography>
+                    {seleccionado.metricasFinales?.map50 !== undefined && (
+                      <Chip size="small" color="success" label={`mAP50: ${seleccionado.metricasFinales.map50.toFixed(3)}`} />
+                    )}
+                    {seleccionado.metricasFinales?.map50_95 !== undefined && (
+                      <Chip size="small" label={`mAP50-95: ${seleccionado.metricasFinales.map50_95.toFixed(3)}`} />
+                    )}
+                    {seleccionado.metricasFinales?.precision !== undefined && (
+                      <Chip size="small" label={`Precision: ${seleccionado.metricasFinales.precision.toFixed(3)}`} />
+                    )}
+                    {seleccionado.metricasFinales?.recall !== undefined && (
+                      <Chip size="small" label={`Recall: ${seleccionado.metricasFinales.recall.toFixed(3)}`} />
+                    )}
+                  </Stack>
 
-                <Divider sx={{ my: 1.5 }} />
+                  <Divider />
 
-                <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-                  <Chip size="small" label={`Total imágenes: ${detalle.totalImagenes.toLocaleString("es-CL")}`} />
-                  {detalle.imagenesConDeteccion !== null && (
-                    <Chip
-                      size="small"
-                      label={`Con detección: ${detalle.imagenesConDeteccion.toLocaleString("es-CL")}`}
-                    />
-                  )}
-                  {detalle.rutaPesos && <Chip size="small" label={`Pesos: ${detalle.rutaPesos}`} />}
-                  {detalle.metricasFinales?.map50 !== undefined && (
-                    <Chip size="small" color="success" label={`mAP50: ${detalle.metricasFinales.map50}`} />
-                  )}
-                  {detalle.metricasFinales?.map50_95 !== undefined && (
-                    <Chip size="small" color="success" label={`mAP50-95: ${detalle.metricasFinales.map50_95}`} />
-                  )}
-                  {detalle.metricasFinales?.precision !== undefined && (
-                    <Chip size="small" label={`Precision: ${detalle.metricasFinales.precision}`} />
-                  )}
-                  {detalle.metricasFinales?.recall !== undefined && (
-                    <Chip size="small" label={`Recall: ${detalle.metricasFinales.recall}`} />
+                  {cargandoMetricas ? (
+                    <CircularProgress size={20} />
+                  ) : (
+                    <GraficoMetricas metricas={metricas ?? []} />
                   )}
                 </Stack>
               </Paper>
-
-              {detalle.tipo === "entrenamiento" && (
-                <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
-                    Métricas por época
-                  </Typography>
-                  {cargandoMetricas ? <CircularProgress size={20} /> : <GraficoMetricas metricas={metricas ?? []} />}
-                </Paper>
-              )}
-
-              <Paper variant="outlined" sx={{ p: 2 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                  Parámetros
-                </Typography>
-                <Box
-                  component="pre"
-                  sx={{
-                    m: 0,
-                    fontFamily: "monospace",
-                    fontSize: 12,
-                    whiteSpace: "pre-wrap",
-                    color: "text.secondary",
-                  }}
-                >
-                  {JSON.stringify(detalle.parametros, null, 2)}
-                </Box>
-              </Paper>
-            </Stack>
-          )}
-        </Box>
+            )}
+          </Stack>
+        )}
       </Box>
     </Stack>
   );

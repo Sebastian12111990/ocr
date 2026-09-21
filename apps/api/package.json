@@ -13,7 +13,8 @@
     "verify:stack": "dotenv -e .env.development -- tsx scripts/verificar-stack.ts",
     "db:migrate": "dotenv -e .env.development -- tsx src/infraestructura/cli-migraciones.ts run",
     "db:revert": "dotenv -e .env.development -- tsx src/infraestructura/cli-migraciones.ts revert",
-    "db:seed": "dotenv -e .env.development -- tsx src/infraestructura/seed.ts"
+    "db:seed": "dotenv -e .env.development -- tsx src/infraestructura/seed.ts",
+    "seed:yolo": "dotenv -e .env.development -- tsx scripts/cargar-historico-yolo.ts"
   },
   "dependencies": {
     "cors": "^2.8.6",

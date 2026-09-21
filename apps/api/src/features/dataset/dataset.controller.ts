@@ -67,11 +67,6 @@ export class ControladorDataset {
     res.json(await this.servicio.obtenerResumen());
   };
 
-  listarTodas = async (req: Request, res: Response): Promise<void> => {
-    const { limite, desplazamiento } = esquemaTodas.parse(req.query);
-    res.json(await this.servicio.listarTodas(limite, desplazamiento));
-  };
-
   listarMuestra = async (req: Request, res: Response): Promise<void> => {
     const { origen, limite, desplazamiento, soloConCaja, soloSinCaja, excluirClasificadas } = esquemaMuestra.parse(
       req.query,
@@ -79,6 +74,11 @@ export class ControladorDataset {
     res.json(
       await this.servicio.listarMuestra(origen, limite, desplazamiento, { soloConCaja, soloSinCaja, excluirClasificadas }),
     );
+  };
+
+  listarTodas = async (req: Request, res: Response): Promise<void> => {
+    const { limite, desplazamiento } = esquemaTodas.parse(req.query);
+    res.json(await this.servicio.listarTodas(limite, desplazamiento));
   };
 
   obtenerImagen = async (req: Request, res: Response): Promise<void> => {

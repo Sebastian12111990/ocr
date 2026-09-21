@@ -1,5 +1,5 @@
 import { apiSlice } from "@/app/store/apiSlice";
-import type { DetalleEntrenamiento, MetricaEpocaRespuesta, ResumenEntrenamiento } from "./entrenamientos.types";
+import type { DetalleEntrenamiento, MetricaEpoca, ResumenEntrenamiento } from "./entrenamientos.types";
 
 export const entrenamientosApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
@@ -7,11 +7,10 @@ export const entrenamientosApi = apiSlice.injectEndpoints({
       query: () => "entrenamientos",
       providesTags: ["Entrenamientos"],
     }),
-    obtenerDetalleEntrenamiento: builder.query<DetalleEntrenamiento, string>({
+    obtenerEntrenamiento: builder.query<DetalleEntrenamiento, string>({
       query: (id) => `entrenamientos/${id}`,
-      providesTags: (_resultado, _error, id) => [{ type: "Entrenamientos", id }],
     }),
-    obtenerMetricasEntrenamiento: builder.query<MetricaEpocaRespuesta[], string>({
+    obtenerMetricasEntrenamiento: builder.query<MetricaEpoca[], string>({
       query: (id) => `entrenamientos/${id}/metricas`,
     }),
   }),
@@ -19,6 +18,6 @@ export const entrenamientosApi = apiSlice.injectEndpoints({
 
 export const {
   useListarEntrenamientosQuery,
-  useObtenerDetalleEntrenamientoQuery,
+  useObtenerEntrenamientoQuery,
   useObtenerMetricasEntrenamientoQuery,
 } = entrenamientosApi;

@@ -24,7 +24,7 @@ export interface DetalleEntrenamiento extends ResumenEntrenamiento {
   rutaPesos: string | null;
 }
 
-export interface MetricaEpocaRespuesta {
+export interface MetricaEpoca {
   epoca: number;
   boxLoss: number;
   clsLoss: number;
