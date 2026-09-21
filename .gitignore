@@ -21,3 +21,6 @@ debug.log
 # Editores
 .vscode/
 .idea/
+
+# Backups de base de datos — contienen patentes reales (datos sensibles), nunca a git
+backups/

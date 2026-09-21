@@ -7,6 +7,8 @@ import { ClienteCv } from "../infraestructura/cliente-cv.js";
 import { Imagen } from "../features/imagenes/imagen.entidad.js";
 import { Preset } from "../features/presets/preset.entidad.js";
 import { Ejecucion } from "../features/ejecuciones/ejecucion.entidad.js";
+import { EntrenamientoYolo } from "../features/entrenamientos/entrenamiento-yolo.entidad.js";
+import { ClasificacionImagenDataset } from "../features/dataset/clasificacion-imagen-dataset.entidad.js";
 
 import { ServicioCatalogo } from "../features/catalogo/catalogo.service.js";
 import { ControladorCatalogo } from "../features/catalogo/catalogo.controller.js";
@@ -29,6 +31,12 @@ import { ControladorEjecuciones } from "../features/ejecuciones/ejecuciones.cont
 import { ServicioCandidatos } from "../features/candidatos/candidatos.service.js";
 import { ControladorCandidatos } from "../features/candidatos/candidatos.controller.js";
 
+import { ServicioEntrenamientos } from "../features/entrenamientos/entrenamientos.service.js";
+import { ControladorEntrenamientos } from "../features/entrenamientos/entrenamientos.controller.js";
+
+import { ServicioDataset } from "../features/dataset/dataset.service.js";
+import { ControladorDataset } from "../features/dataset/dataset.controller.js";
+
 /** Construye el contenedor de Inversify. Requiere que `fuenteDatos` ya esté inicializada. */
 export function crearContenedor(fuenteDatos: DataSource): Container {
   const contenedor = new Container();
@@ -37,6 +45,12 @@ export function crearContenedor(fuenteDatos: DataSource): Container {
   contenedor.bind(TIPOS.RepositorioImagen).toConstantValue(fuenteDatos.getRepository(Imagen));
   contenedor.bind(TIPOS.RepositorioPreset).toConstantValue(fuenteDatos.getRepository(Preset));
   contenedor.bind(TIPOS.RepositorioEjecucion).toConstantValue(fuenteDatos.getRepository(Ejecucion));
+  contenedor
+    .bind(TIPOS.RepositorioEntrenamientoYolo)
+    .toConstantValue(fuenteDatos.getRepository(EntrenamientoYolo));
+  contenedor
+    .bind(TIPOS.RepositorioClasificacionDataset)
+    .toConstantValue(fuenteDatos.getRepository(ClasificacionImagenDataset));
 
   contenedor.bind(TIPOS.ClienteCv).to(ClienteCv).inSingletonScope();
 
@@ -60,6 +74,12 @@ export function crearContenedor(fuenteDatos: DataSource): Container {
 
   contenedor.bind(TIPOS.ServicioCandidatos).to(ServicioCandidatos).inSingletonScope();
   contenedor.bind(TIPOS.ControladorCandidatos).to(ControladorCandidatos).inSingletonScope();
+
+  contenedor.bind(TIPOS.ServicioEntrenamientos).to(ServicioEntrenamientos).inSingletonScope();
+  contenedor.bind(TIPOS.ControladorEntrenamientos).to(ControladorEntrenamientos).inSingletonScope();
+
+  contenedor.bind(TIPOS.ServicioDataset).to(ServicioDataset).inSingletonScope();
+  contenedor.bind(TIPOS.ControladorDataset).to(ControladorDataset).inSingletonScope();
 
   return contenedor;
 }
