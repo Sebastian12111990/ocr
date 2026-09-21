@@ -10,6 +10,21 @@ import numpy as np
 from .canales import a_gris
 
 
+MODOS_RECUPERACION = {
+    "RETR_EXTERNAL": cv2.RETR_EXTERNAL,
+    "RETR_LIST": cv2.RETR_LIST,
+    "RETR_CCOMP": cv2.RETR_CCOMP,
+    "RETR_TREE": cv2.RETR_TREE,
+}
+
+METODOS_APROXIMACION = {
+    "CHAIN_APPROX_NONE": cv2.CHAIN_APPROX_NONE,
+    "CHAIN_APPROX_SIMPLE": cv2.CHAIN_APPROX_SIMPLE,
+    "CHAIN_APPROX_TC89_L1": cv2.CHAIN_APPROX_TC89_L1,
+    "CHAIN_APPROX_TC89_KCOS": cv2.CHAIN_APPROX_TC89_KCOS,
+}
+
+
 def _angulo_respecto_horizontal(rectangulo) -> float:
     """Ángulo firmado del lado más largo, normalizado entre -90° y 90°."""
     vertices = cv2.boxPoints(rectangulo)
@@ -41,18 +56,28 @@ def detectar_rectangulos(
     angulo_maximo: float,
     umbral_bajo: int,
     umbral_alto: int,
+    modo_recuperacion: str = "RETR_LIST",
+    metodo_aproximacion: str = "CHAIN_APPROX_SIMPLE",
 ) -> list[dict]:
     """Devuelve los rectángulos que cumplen los filtros, ordenados por área
     descendente y sin duplicados casi idénticos (el contorno interior y
     exterior del mismo objeto suelen pasar ambos el filtro). Cada uno es
-    `{"rectangulo": cv2.minAreaRect(...), "area": float}`."""
+    `{"rectangulo": cv2.minAreaRect(...), "cuadrilatero": ndarray,
+    "area": float}`. El cuadrilátero conserva las cuatro esquinas reales
+    cuando el contorno permite corregir la perspectiva después."""
     gris = a_gris(imagen)
     # En modo libre es habitual colocar "Bordes (Canny)" antes de esta
     # etapa. Si la entrada ya contiene solamente 0 y 255, volver a aplicar
     # Canny borra muchos contornos y evita que los rectángulos se dibujen.
     es_mapa_de_bordes = bool(np.all((gris == 0) | (gris == 255)))
     bordes = gris if es_mapa_de_bordes else cv2.Canny(gris, umbral_bajo, umbral_alto)
-    contornos, _ = cv2.findContours(bordes, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    try:
+        modo = MODOS_RECUPERACION[modo_recuperacion]
+        metodo = METODOS_APROXIMACION[metodo_aproximacion]
+    except KeyError as error:
+        raise ValueError(f"Opción de contornos no soportada: {error.args[0]}") from error
+
+    contornos, _jerarquia = cv2.findContours(bordes, modo, metodo)
 
     candidatos = []
     for contorno in contornos:
@@ -71,8 +96,16 @@ def detectar_rectangulos(
             and ocupacion >= ocupacion_minima
             and abs(angulo_horizontal) <= angulo_maximo
         ):
+            perimetro = cv2.arcLength(contorno, True)
+            aproximado = cv2.approxPolyDP(contorno, 0.02 * perimetro, True)
+            cuadrilatero = (
+                aproximado.reshape(4, 2).astype(np.float32)
+                if len(aproximado) == 4 and cv2.isContourConvex(aproximado)
+                else cv2.boxPoints(rectangulo).astype(np.float32)
+            )
             candidatos.append({
                 "rectangulo": rectangulo,
+                "cuadrilatero": cuadrilatero,
                 "area": area_rectangulo,
                 "angulo_horizontal": angulo_horizontal,
             })

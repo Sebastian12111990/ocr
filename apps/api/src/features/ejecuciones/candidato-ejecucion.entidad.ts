@@ -42,8 +42,8 @@ export class CandidatoEjecucion {
   @Column({ type: "real" })
   area!: number;
 
-  @Column({ type: "varchar" })
-  texto!: string;
+  @Column({ type: "varchar", nullable: true })
+  texto!: string | null;
 
   @Column({ type: "real", nullable: true })
   confianza!: number | null;

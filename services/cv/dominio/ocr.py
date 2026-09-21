@@ -17,12 +17,11 @@ _CONFIGURACION = "--psm 7 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0
 
 
 def reconocer_texto(imagen_procesada: np.ndarray) -> tuple[str, float]:
-    texto_bruto = pytesseract.image_to_string(imagen_procesada, config=_CONFIGURACION)
-    texto = "".join(caracter for caracter in texto_bruto if caracter.isalnum()).upper()
-
     datos = pytesseract.image_to_data(
         imagen_procesada, config=_CONFIGURACION, output_type=pytesseract.Output.DICT
     )
+    texto_bruto = "".join(str(fragmento) for fragmento in datos.get("text", []))
+    texto = "".join(caracter for caracter in texto_bruto if caracter.isalnum()).upper()
     confianzas = []
     for valor in datos.get("conf", []):
         try:

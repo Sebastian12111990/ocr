@@ -4,6 +4,7 @@ import { Card, Collapse, IconButton, Stack, Switch, Typography } from "@mui/mate
 
 import type { EtapaCatalogo } from "@/features/catalogo/catalogo.types";
 import type { EtapaPipeline, ValorParametro } from "../pipeline.types";
+import { AyudaEtapa } from "./AyudaEtapa";
 import { ControlParametro } from "./ControlParametro";
 
 interface Props {
@@ -24,11 +25,12 @@ export function SeccionEtapa({ definicion, etapa, onAlternarActiva, onCambiarPar
   return (
     <Card variant="outlined" sx={{ p: 1.5 }}>
       <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between" }}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", minWidth: 0, flex: 1 }}>
           <Switch size="small" checked={etapa.activa} onChange={onAlternarActiva} />
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          <Typography variant="body2" noWrap sx={{ fontWeight: 600, minWidth: 0 }}>
             {definicion.etiqueta}
           </Typography>
+          <AyudaEtapa tipo={definicion.tipo} titulo={definicion.etiqueta} />
         </Stack>
         <Stack direction="row" sx={{ alignItems: "center" }}>
           {accionesExtra}

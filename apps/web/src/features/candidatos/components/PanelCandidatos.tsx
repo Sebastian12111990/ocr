@@ -31,6 +31,12 @@ function estiloCoincidencia(coincidencia: number | null) {
   return { borde: "grey.600", fondo: "rgba(158, 158, 158, 0.12)", color: "default" as const };
 }
 
+const FORMATO_AREA = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 1 });
+
+function formatearArea(area: number): string {
+  return `${FORMATO_AREA.format(area)} px²`;
+}
+
 /** Recorta las regiones rectangulares detectadas sobre la imagen ya procesada
  * (misma lógica que la etapa "Rectángulos") y corre OCR sobre cada una por
  * separado, para no depender de un único texto sobre la foto completa. */
@@ -44,14 +50,20 @@ export function PanelCandidatos({
 }: Props) {
   const [obtenerCandidatos, { isLoading, error, reset }] = useObtenerCandidatosMutation();
   const solicitudEnCursoRef = useRef<{ abort: () => void } | null>(null);
+  const resetRef = useRef(reset);
+  resetRef.current = reset;
   const listaCandidatos = candidatos ?? [];
 
   useEffect(() => {
     solicitudEnCursoRef.current?.abort();
     solicitudEnCursoRef.current = null;
-    reset();
-    return () => solicitudEnCursoRef.current?.abort();
-  }, [contextoActual, reset]);
+    resetRef.current();
+  }, [contextoActual]);
+
+  useEffect(() => () => {
+    solicitudEnCursoRef.current?.abort();
+    solicitudEnCursoRef.current = null;
+  }, []);
 
   async function alObtener(): Promise<void> {
     if (!imagenId || !contextoActual) return;
@@ -130,11 +142,22 @@ export function PanelCandidatos({
                       <Chip size="small" label={`${candidato.confianza.toFixed(0)}%`} />
                     </Tooltip>
                   )}
-                  <Tooltip title="Ancho × alto del recorte detectado, en píxeles">
+                  <Tooltip title="Longitud del lado menor del rectángulo">
                     <Chip
                       size="small"
-                      label={`${Math.round(candidato.caja.ancho)}×${Math.round(candidato.caja.alto)}`}
+                      variant="outlined"
+                      label={`Mín.: ${Math.round(Math.min(candidato.caja.ancho, candidato.caja.alto))} px`}
                     />
+                  </Tooltip>
+                  <Tooltip title="Longitud del lado mayor del rectángulo">
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label={`Máx.: ${Math.round(Math.max(candidato.caja.ancho, candidato.caja.alto))} px`}
+                    />
+                  </Tooltip>
+                  <Tooltip title={`Área del rectángulo detectado #${indice + 1}`}>
+                    <Chip size="small" color="primary" variant="outlined" label={`Total: ${formatearArea(candidato.area)}`} />
                   </Tooltip>
                 </Stack>
               </Stack>

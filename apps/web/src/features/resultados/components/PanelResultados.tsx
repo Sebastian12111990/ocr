@@ -42,12 +42,9 @@ function obtenerMotivoBloqueo(
   if (!resultado) return "ejecuta OCR con la configuración actual";
   if (candidatos === null) return "obtén los candidatos con la configuración actual";
 
-  const candidatosValidos = candidatos.filter((candidato) => (candidato.coincidencia ?? 0) >= 20);
-  if (candidatosValidos.length === 0) {
-    return "se necesita al menos un candidato con coincidencia igual o superior al 20%";
-  }
-  if (candidatosValidos.some((candidato) => !candidato.imagenPngBase64)) {
-    return "todos los candidatos válidos deben incluir su recorte PNG";
+  if (candidatos.length === 0) return "la búsqueda debe encontrar al menos un candidato";
+  if (candidatos.some((candidato) => !candidato.imagenPngBase64)) {
+    return "todos los candidatos deben incluir su recorte PNG";
   }
   if (!imagenProcesada || imagenProcesada.size === 0) return "espera que termine la vista procesada";
   return null;
@@ -65,6 +62,8 @@ export function PanelResultados({
   onOcrEjecutado,
 }: Props) {
   const [ejecutarOcr, { isLoading: ejecutandoOcr, error: errorOcr, reset: resetOcr }] = useEjecutarOcrMutation();
+  const resetOcrRef = useRef(resetOcr);
+  resetOcrRef.current = resetOcr;
   const [guardarEjecucion, { isLoading: enviandoGuardado }] = useGuardarEjecucionMutation();
   const [preparandoGuardado, setPreparandoGuardado] = useState(false);
   const [confirmacion, setConfirmacion] = useState<ConfirmacionGuardado | null>(null);
@@ -88,11 +87,15 @@ export function PanelResultados({
   useEffect(() => {
     solicitudOcrRef.current?.abort();
     solicitudOcrRef.current = null;
-    resetOcr();
+    resetOcrRef.current();
     setConfirmacion(null);
     setFalloGuardado(null);
-    return () => solicitudOcrRef.current?.abort();
-  }, [contextoActual, resetOcr]);
+  }, [contextoActual]);
+
+  useEffect(() => () => {
+    solicitudOcrRef.current?.abort();
+    solicitudOcrRef.current = null;
+  }, []);
 
   async function alEjecutar(): Promise<void> {
     if (!imagenId || !contextoActual) return;
@@ -141,8 +144,8 @@ export function PanelResultados({
           duracionMs: resultado.duracionMs,
         },
         imagenProcesadaPngBase64,
-        // La lista completa conserva el índice original. La API recalcula y
-        // persiste únicamente los candidatos cuya coincidencia sea ≥20%.
+        // La lista y su orden se conservan completos, incluidos los recortes
+        // sin texto o con coincidencia baja, para experimentación y ML.
         candidatos: candidatos.map((candidato) => ({
           caja: candidato.caja,
           area: candidato.area,

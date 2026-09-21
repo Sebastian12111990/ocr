@@ -170,19 +170,14 @@ export class ServicioEjecuciones {
     const patenteEsperada = imagen.patenteEsperada;
     if (!patenteEsperada) throw new ErrorValidacion("La imagen no tiene una patente esperada para comparar");
 
-    const candidatosValidos = solicitud.candidatos.flatMap((candidato, orden) => {
-      const texto = normalizarTexto(candidato.texto ?? "");
-      const coincidencia = calcularCoincidencia(texto, patenteEsperada);
-      if (coincidencia < 20) return [];
+    const candidatosPreparados = solicitud.candidatos.map((candidato, orden) => {
+      const texto = candidato.texto === null ? null : normalizarTexto(candidato.texto);
+      const coincidencia = calcularCoincidencia(texto ?? "", patenteEsperada);
       if (!candidato.imagenPngBase64) {
         throw new ErrorValidacion(`El candidato ${orden + 1} no incluye su recorte PNG`);
       }
-      return [{ candidato, coincidencia, orden, texto }];
+      return { candidato, coincidencia, orden, texto };
     });
-
-    if (candidatosValidos.length === 0) {
-      throw new ErrorValidacion("Se requiere al menos un candidato con coincidencia igual o superior al 20%");
-    }
 
     const imagenProcesadaPng = decodificarPng(
       solicitud.imagenProcesadaPngBase64,
@@ -191,7 +186,7 @@ export class ServicioEjecuciones {
     );
     const textoDetectado = normalizarTexto(solicitud.resultadoOcr.textoDetectado ?? "");
     const distanciaEdicion = distanciaLevenshtein(textoDetectado, patenteEsperada);
-    const mejorCoincidencia = Math.max(...candidatosValidos.map(({ coincidencia }) => coincidencia));
+    const mejorCoincidencia = Math.max(...candidatosPreparados.map(({ coincidencia }) => coincidencia));
 
     return this.repositorio.manager.transaction(async (administrador) => {
       const repositorioEjecucion = administrador.getRepository(Ejecucion);
@@ -212,7 +207,7 @@ export class ServicioEjecuciones {
         imagenProcesadaPng,
       }));
 
-      const entidades = candidatosValidos.map(({ candidato, coincidencia, orden, texto }) =>
+      const entidades = candidatosPreparados.map(({ candidato, coincidencia, orden, texto }) =>
         repositorioCandidato.create({
           ejecucion,
           orden,

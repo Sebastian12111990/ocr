@@ -82,7 +82,7 @@ export interface DetalleEjecucion {
       angulo: number;
     };
     area: number;
-    texto: string;
+    texto: string | null;
     confianza: number | null;
     coincidencia: number;
     imagenPngBase64: string;

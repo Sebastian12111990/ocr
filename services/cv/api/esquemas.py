@@ -14,7 +14,7 @@ class SolicitudPipeline(BaseModel):
 
 
 class SolicitudCandidatos(SolicitudPipeline):
-    limite: int = 5
+    limite: int = 20
     parametros_deteccion: dict[str, float | int | bool | str] = Field(default_factory=dict)
 
 

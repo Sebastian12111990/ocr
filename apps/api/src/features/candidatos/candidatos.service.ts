@@ -7,7 +7,7 @@ import type { Pipeline } from "../../shared/contrato/pipeline.js";
 import { calcularCoincidencia, normalizarTexto } from "../../shared/utils/texto.js";
 import type { Candidato } from "./candidatos.types.js";
 
-const LIMITE_POR_DEFECTO = 5;
+const LIMITE_POR_DEFECTO = 20;
 
 @injectable()
 export class ServicioCandidatos {
