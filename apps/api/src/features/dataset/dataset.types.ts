@@ -45,3 +45,14 @@ export interface ClasificacionImagen {
   motivo: "brillo" | "suciedad" | "otro" | null;
   creadoEn: string;
 }
+
+export interface ProcedenciaLote {
+  nombreArchivo: string;
+  planta: string;
+  fecha: string;
+}
+
+export interface ResumenPlanta {
+  planta: string;
+  total: number;
+}

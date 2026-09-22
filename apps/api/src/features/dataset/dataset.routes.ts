@@ -16,6 +16,8 @@ export function crearRutasDataset(contenedor: Container): Router {
   router.get("/clasificadas", controlador.listarClasificadas);
   router.post("/clasificaciones", controlador.crearClasificacion);
   router.delete("/clasificaciones/:id", controlador.eliminarClasificacion);
+  router.post("/procedencia", controlador.importarProcedencia);
+  router.get("/procedencia/plantas", controlador.listarPlantas);
 
   return router;
 }

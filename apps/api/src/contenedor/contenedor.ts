@@ -9,6 +9,7 @@ import { Preset } from "../features/presets/preset.entidad.js";
 import { Ejecucion } from "../features/ejecuciones/ejecucion.entidad.js";
 import { EntrenamientoYolo } from "../features/entrenamientos/entrenamiento-yolo.entidad.js";
 import { ClasificacionImagenDataset } from "../features/dataset/clasificacion-imagen-dataset.entidad.js";
+import { ProcedenciaImagen } from "../features/dataset/procedencia-imagen.entidad.js";
 
 import { ServicioCatalogo } from "../features/catalogo/catalogo.service.js";
 import { ControladorCatalogo } from "../features/catalogo/catalogo.controller.js";
@@ -51,6 +52,9 @@ export function crearContenedor(fuenteDatos: DataSource): Container {
   contenedor
     .bind(TIPOS.RepositorioClasificacionDataset)
     .toConstantValue(fuenteDatos.getRepository(ClasificacionImagenDataset));
+  contenedor
+    .bind(TIPOS.RepositorioProcedenciaImagen)
+    .toConstantValue(fuenteDatos.getRepository(ProcedenciaImagen));
 
   contenedor.bind(TIPOS.ClienteCv).to(ClienteCv).inSingletonScope();
 

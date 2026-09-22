@@ -9,6 +9,7 @@ import {
   type MotivoCasoDificil,
   type PerspectivaClasificacion,
 } from "./clasificacion-imagen-dataset.entidad.js";
+import { ProcedenciaImagen } from "./procedencia-imagen.entidad.js";
 import type {
   CajaNormalizada,
   ClasificacionImagen,
@@ -16,7 +17,9 @@ import type {
   MuestraClasificada,
   MuestraDataset,
   OrigenImagenDataset,
+  ProcedenciaLote,
   ResumenDataset,
+  ResumenPlanta,
 } from "./dataset.types.js";
 import { TIPOS } from "../../contenedor/tipos.js";
 import { entorno } from "../../config/env.js";
@@ -38,6 +41,8 @@ export class ServicioDataset {
   constructor(
     @inject(TIPOS.RepositorioClasificacionDataset)
     private readonly repositorioClasificacion: Repository<ClasificacionImagenDataset>,
+    @inject(TIPOS.RepositorioProcedenciaImagen)
+    private readonly repositorioProcedencia: Repository<ProcedenciaImagen>,
   ) {}
 
   async obtenerResumen(): Promise<ResumenDataset> {
@@ -194,6 +199,29 @@ export class ServicioDataset {
   async eliminarClasificacion(id: string): Promise<void> {
     const resultado = await this.repositorioClasificacion.delete({ id });
     if (!resultado.affected) throw new ErrorNoEncontrado(`No existe la clasificación: ${id}`);
+  }
+
+  /**
+   * Carga masiva desde `procedencia.csv` (ver scripts/cargar-procedencia.ts).
+   * Upsert por `nombreArchivo`: si la imagen ya tenía procedencia registrada, se
+   * actualiza en vez de duplicar — permite re-correr el loader sin miedo.
+   */
+  async importarProcedencia(lote: ProcedenciaLote[]): Promise<{ insertados: number }> {
+    if (lote.length === 0) return { insertados: 0 };
+    await this.repositorioProcedencia.upsert(lote, { conflictPaths: ["nombreArchivo"] });
+    return { insertados: lote.length };
+  }
+
+  async listarPlantas(): Promise<ResumenPlanta[]> {
+    const filas = await this.repositorioProcedencia
+      .createQueryBuilder("procedencia")
+      .select("procedencia.planta", "planta")
+      .addSelect("count(*)", "total")
+      .groupBy("procedencia.planta")
+      .orderBy("planta", "ASC")
+      .getRawMany<{ planta: string; total: string }>();
+
+    return filas.map((fila) => ({ planta: fila.planta, total: Number(fila.total) }));
   }
 
   async obtenerRutaImagen(origen: OrigenImagenDataset, nombre: string): Promise<string> {

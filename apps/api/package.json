@@ -14,7 +14,8 @@
     "db:migrate": "dotenv -e .env.development -- tsx src/infraestructura/cli-migraciones.ts run",
     "db:revert": "dotenv -e .env.development -- tsx src/infraestructura/cli-migraciones.ts revert",
     "db:seed": "dotenv -e .env.development -- tsx src/infraestructura/seed.ts",
-    "seed:yolo": "dotenv -e .env.development -- tsx scripts/cargar-historico-yolo.ts"
+    "seed:yolo": "dotenv -e .env.development -- tsx scripts/cargar-historico-yolo.ts",
+    "cargar:procedencia": "dotenv -e .env.development -- tsx scripts/cargar-procedencia.ts"
   },
   "dependencies": {
     "cors": "^2.8.6",

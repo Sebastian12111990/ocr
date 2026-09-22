@@ -5,6 +5,7 @@ export const TIPOS = {
   RepositorioEjecucion: Symbol.for("RepositorioEjecucion"),
   RepositorioEntrenamientoYolo: Symbol.for("RepositorioEntrenamientoYolo"),
   RepositorioClasificacionDataset: Symbol.for("RepositorioClasificacionDataset"),
+  RepositorioProcedenciaImagen: Symbol.for("RepositorioProcedenciaImagen"),
 
   ClienteCv: Symbol.for("ClienteCv"),
 

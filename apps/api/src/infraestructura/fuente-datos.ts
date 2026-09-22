@@ -8,6 +8,7 @@ import { Preset } from "../features/presets/preset.entidad.js";
 import { EntrenamientoYolo } from "../features/entrenamientos/entrenamiento-yolo.entidad.js";
 import { MetricaEpoca } from "../features/entrenamientos/metrica-epoca.entidad.js";
 import { ClasificacionImagenDataset } from "../features/dataset/clasificacion-imagen-dataset.entidad.js";
+import { ProcedenciaImagen } from "../features/dataset/procedencia-imagen.entidad.js";
 
 export const fuenteDatos = new DataSource({
   type: "postgres",
@@ -16,7 +17,16 @@ export const fuenteDatos = new DataSource({
   username: entorno.POSTGRES_USER,
   password: entorno.POSTGRES_PASSWORD,
   database: entorno.POSTGRES_DB,
-  entities: [Imagen, Preset, Ejecucion, CandidatoEjecucion, EntrenamientoYolo, MetricaEpoca, ClasificacionImagenDataset],
+  entities: [
+    Imagen,
+    Preset,
+    Ejecucion,
+    CandidatoEjecucion,
+    EntrenamientoYolo,
+    MetricaEpoca,
+    ClasificacionImagenDataset,
+    ProcedenciaImagen,
+  ],
   migrations: ["src/migraciones/*.ts"],
   synchronize: false,
 });

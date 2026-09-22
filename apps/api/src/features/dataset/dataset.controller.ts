@@ -59,6 +59,16 @@ const esquemaCrearClasificacion = z
 
 const esquemaParametroId = z.object({ id: z.string().uuid() });
 
+const esquemaImportarProcedencia = z.object({
+  lote: z.array(
+    z.object({
+      nombreArchivo: z.string().min(1).max(255),
+      planta: z.string().min(1).max(100),
+      fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "fecha debe ser YYYY-MM-DD"),
+    }),
+  ),
+});
+
 @injectable()
 export class ControladorDataset {
   constructor(@inject(TIPOS.ServicioDataset) private readonly servicio: ServicioDataset) {}
@@ -106,5 +116,14 @@ export class ControladorDataset {
     const { id } = esquemaParametroId.parse(req.params);
     await this.servicio.eliminarClasificacion(id);
     res.status(204).send();
+  };
+
+  importarProcedencia = async (req: Request, res: Response): Promise<void> => {
+    const { lote } = esquemaImportarProcedencia.parse(req.body);
+    res.status(201).json(await this.servicio.importarProcedencia(lote));
+  };
+
+  listarPlantas = async (_req: Request, res: Response): Promise<void> => {
+    res.json(await this.servicio.listarPlantas());
   };
 }
