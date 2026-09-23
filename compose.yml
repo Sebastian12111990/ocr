@@ -26,8 +26,7 @@ services:
     working_dir: /workspace
     volumes:
       - ./services/yolo:/workspace
-      - '${YOLO_IMAGENES_DIR:-D:\imagenes - copia}:/data/patentes:ro'
-      - '${YOLO_DATASET_DIR:-D:\patentes Data Set}:/data/patentes_dataset'
+      - '${YOLO_IMAGENES_DIR:-D:\img_dataset}:/data/patentes:ro'
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
     shm_size: '2gb'

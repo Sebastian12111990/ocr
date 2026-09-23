@@ -3,127 +3,113 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 
 import { ServicioDataset } from "./dataset.service.js";
+import { ServicioProcesamientoDataset } from "./procesamiento-dataset.service.js";
 import { TIPOS } from "../../contenedor/tipos.js";
 
-const origenValido = z.enum(["dataset", "sin_vehiculo", "sin_deteccion"]);
-const perspectivaValida = z.enum(["patente_sin_vehiculo", "descartada_sin_vehiculo", "caso_dificil"]);
-const motivoValido = z.enum(["brillo", "suciedad", "otro"]);
+const vistaValida = z.enum(["todas", "con_patente", "vehiculo_sin_patente", "sin_vehiculo_con_patente", "sin_deteccion"]);
+const veredictoValido = z.enum(["correcta", "falso_positivo"]);
+const fechaValida = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "fecha debe ser YYYY-MM-DD");
 
-/** Query params llegan como string — "false" debe parsear a `false`, no a `true`. */
-const booleanoQuery = z
-  .enum(["true", "false"])
-  .optional()
-  .default("false")
-  .transform((valor) => valor === "true");
-
-const esquemaMuestra = z.object({
-  origen: origenValido.default("dataset"),
-  limite: z.coerce.number().int().min(1).max(100).default(20),
-  desplazamiento: z.coerce.number().int().min(0).default(0),
-  soloConCaja: booleanoQuery,
-  soloSinCaja: booleanoQuery,
-  excluirClasificadas: booleanoQuery,
+const esquemaResumen = z.object({
+  planta: z.string().min(1).optional(),
+  fechaDesde: fechaValida.optional(),
+  fechaHasta: fechaValida.optional(),
+  etiqueta: z.string().min(1).optional(),
+  sinEtiqueta: z.string().min(1).optional(),
 });
 
-const esquemaTodas = z.object({
-  limite: z.coerce.number().int().min(1).max(100).default(20),
-  desplazamiento: z.coerce.number().int().min(0).default(0),
+const esquemaListarImagenes = z.object({
+  vista: vistaValida.default("todas"),
+  planta: z.string().min(1).optional(),
+  fechaDesde: fechaValida.optional(),
+  fechaHasta: fechaValida.optional(),
+  etiqueta: z.string().min(1).optional(),
+  sinEtiqueta: z.string().min(1).optional(),
+  cursor: z.string().min(1).optional(),
+  limite: z.coerce.number().int().min(1).max(100).default(24),
 });
-
-const esquemaImagen = z.object({
-  origen: origenValido,
-  nombre: z.string().min(1).max(255),
-});
-
-const esquemaListarClasificaciones = z.object({
-  perspectiva: perspectivaValida.optional(),
-});
-
-const esquemaListarClasificadas = z.object({
-  perspectiva: perspectivaValida,
-  limite: z.coerce.number().int().min(1).max(100).default(20),
-  desplazamiento: z.coerce.number().int().min(0).default(0),
-});
-
-const esquemaCrearClasificacion = z
-  .object({
-    nombreArchivo: z.string().min(1).max(255),
-    origen: origenValido,
-    perspectiva: perspectivaValida,
-    motivo: motivoValido.optional(),
-  })
-  .refine((datos) => datos.perspectiva !== "caso_dificil" || datos.motivo !== undefined, {
-    message: "motivo es obligatorio para perspectiva 'caso_dificil'",
-    path: ["motivo"],
-  });
 
 const esquemaParametroId = z.object({ id: z.string().uuid() });
+const esquemaParametroEtiqueta = z.object({ id: z.string().uuid(), clave: z.string().min(1).max(64) });
+const esquemaAsignarEtiqueta = z.object({ nota: z.string().max(500).nullable().optional() });
+const esquemaFijarVeredicto = z.object({ veredicto: veredictoValido.nullable() });
 
-const esquemaImportarProcedencia = z.object({
-  lote: z.array(
-    z.object({
-      nombreArchivo: z.string().min(1).max(255),
-      planta: z.string().min(1).max(100),
-      fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "fecha debe ser YYYY-MM-DD"),
-    }),
-  ),
+const esquemaIniciarProcesamiento = z.object({
+  planta: z.string().min(1),
+  fechaDesde: fechaValida,
+  fechaHasta: fechaValida,
+  modelo: z.string().min(1).optional(),
 });
+
+const esquemaListarFechas = z.object({ planta: z.string().min(1) });
 
 @injectable()
 export class ControladorDataset {
-  constructor(@inject(TIPOS.ServicioDataset) private readonly servicio: ServicioDataset) {}
+  constructor(
+    @inject(TIPOS.ServicioDataset) private readonly servicio: ServicioDataset,
+    @inject(TIPOS.ServicioProcesamientoDataset) private readonly servicioProcesamiento: ServicioProcesamientoDataset,
+  ) {}
 
-  obtenerResumen = async (_req: Request, res: Response): Promise<void> => {
-    res.json(await this.servicio.obtenerResumen());
+  obtenerResumen = async (req: Request, res: Response): Promise<void> => {
+    const filtros = esquemaResumen.parse(req.query);
+    res.json(await this.servicio.obtenerResumen(filtros));
   };
 
-  listarMuestra = async (req: Request, res: Response): Promise<void> => {
-    const { origen, limite, desplazamiento, soloConCaja, soloSinCaja, excluirClasificadas } = esquemaMuestra.parse(
-      req.query,
-    );
-    res.json(
-      await this.servicio.listarMuestra(origen, limite, desplazamiento, { soloConCaja, soloSinCaja, excluirClasificadas }),
-    );
+  iniciarProcesamiento = async (req: Request, res: Response): Promise<void> => {
+    const datos = esquemaIniciarProcesamiento.parse(req.body);
+    res.status(202).json(await this.servicioProcesamiento.iniciarProcesamiento(datos));
   };
 
-  listarTodas = async (req: Request, res: Response): Promise<void> => {
-    const { limite, desplazamiento } = esquemaTodas.parse(req.query);
-    res.json(await this.servicio.listarTodas(limite, desplazamiento));
+  obtenerEstadoProcesamiento = async (_req: Request, res: Response): Promise<void> => {
+    res.json(this.servicioProcesamiento.obtenerEstado());
   };
 
-  obtenerImagen = async (req: Request, res: Response): Promise<void> => {
-    const { origen, nombre } = esquemaImagen.parse(req.params);
-    const ruta = await this.servicio.obtenerRutaImagen(origen, nombre);
-    res.sendFile(ruta);
+  listarModelos = async (_req: Request, res: Response): Promise<void> => {
+    res.json(this.servicioProcesamiento.listarModelos());
   };
 
-  listarClasificaciones = async (req: Request, res: Response): Promise<void> => {
-    const { perspectiva } = esquemaListarClasificaciones.parse(req.query);
-    res.json(await this.servicio.listarClasificaciones(perspectiva));
+  listarTiposEtiqueta = async (_req: Request, res: Response): Promise<void> => {
+    res.json(await this.servicio.listarTiposEtiqueta());
   };
 
-  listarClasificadas = async (req: Request, res: Response): Promise<void> => {
-    const { perspectiva, limite, desplazamiento } = esquemaListarClasificadas.parse(req.query);
-    res.json(await this.servicio.listarClasificadas(perspectiva, limite, desplazamiento));
+  listarFechas = async (req: Request, res: Response): Promise<void> => {
+    const { planta } = esquemaListarFechas.parse(req.query);
+    res.json(await this.servicio.listarFechas(planta));
   };
 
-  crearClasificacion = async (req: Request, res: Response): Promise<void> => {
-    const datos = esquemaCrearClasificacion.parse(req.body);
-    res.status(201).json(await this.servicio.clasificar(datos));
+  listarImagenes = async (req: Request, res: Response): Promise<void> => {
+    const filtros = esquemaListarImagenes.parse(req.query);
+    res.json(await this.servicio.listarImagenes(filtros));
   };
 
-  eliminarClasificacion = async (req: Request, res: Response): Promise<void> => {
+  obtenerArchivo = async (req: Request, res: Response): Promise<void> => {
     const { id } = esquemaParametroId.parse(req.params);
-    await this.servicio.eliminarClasificacion(id);
+    const ruta = await this.servicio.obtenerRutaImagen(id);
+    // El header va en `headers` (no `res.set` antes del sendFile): así "send" solo lo aplica
+    // cuando el archivo se sirve con éxito — si se aplicara siempre, un 404 transitorio
+    // quedaría cacheado por el navegador durante 7 días por el "immutable".
+    res.sendFile(ruta, { headers: { "Cache-Control": "public, max-age=604800, immutable" } }, (err: unknown) => {
+      if (err && !res.headersSent) res.status(404).json({ error: "No se pudo leer la imagen" });
+    });
+  };
+
+  asignarEtiqueta = async (req: Request, res: Response): Promise<void> => {
+    const { id, clave } = esquemaParametroEtiqueta.parse(req.params);
+    const { nota } = esquemaAsignarEtiqueta.parse(req.body ?? {});
+    await this.servicio.asignarEtiqueta(id, clave, nota ?? null);
     res.status(204).send();
   };
 
-  importarProcedencia = async (req: Request, res: Response): Promise<void> => {
-    const { lote } = esquemaImportarProcedencia.parse(req.body);
-    res.status(201).json(await this.servicio.importarProcedencia(lote));
+  quitarEtiqueta = async (req: Request, res: Response): Promise<void> => {
+    const { id, clave } = esquemaParametroEtiqueta.parse(req.params);
+    await this.servicio.quitarEtiqueta(id, clave);
+    res.status(204).send();
   };
 
-  listarPlantas = async (_req: Request, res: Response): Promise<void> => {
-    res.json(await this.servicio.listarPlantas());
+  fijarVeredicto = async (req: Request, res: Response): Promise<void> => {
+    const { id } = esquemaParametroId.parse(req.params);
+    const { veredicto } = esquemaFijarVeredicto.parse(req.body);
+    await this.servicio.fijarVeredicto(id, veredicto);
+    res.status(204).send();
   };
 }

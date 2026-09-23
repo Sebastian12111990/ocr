@@ -24,3 +24,7 @@ debug.log
 
 # Backups de base de datos — contienen patentes reales (datos sensibles), nunca a git
 backups/
+
+# Pesos de YOLO (se descargan solos) y salidas de detectar.py (CSVs, listas de selección)
+services/yolo/*.pt
+services/yolo/runs/

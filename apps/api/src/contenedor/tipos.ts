@@ -4,8 +4,10 @@ export const TIPOS = {
   RepositorioPreset: Symbol.for("RepositorioPreset"),
   RepositorioEjecucion: Symbol.for("RepositorioEjecucion"),
   RepositorioEntrenamientoYolo: Symbol.for("RepositorioEntrenamientoYolo"),
-  RepositorioClasificacionDataset: Symbol.for("RepositorioClasificacionDataset"),
-  RepositorioProcedenciaImagen: Symbol.for("RepositorioProcedenciaImagen"),
+  RepositorioImagenDataset: Symbol.for("RepositorioImagenDataset"),
+  RepositorioTipoEtiqueta: Symbol.for("RepositorioTipoEtiqueta"),
+  RepositorioEtiquetaImagen: Symbol.for("RepositorioEtiquetaImagen"),
+  RepositorioDeteccionImagen: Symbol.for("RepositorioDeteccionImagen"),
 
   ClienteCv: Symbol.for("ClienteCv"),
 
@@ -18,6 +20,7 @@ export const TIPOS = {
   ServicioCandidatos: Symbol.for("ServicioCandidatos"),
   ServicioEntrenamientos: Symbol.for("ServicioEntrenamientos"),
   ServicioDataset: Symbol.for("ServicioDataset"),
+  ServicioProcesamientoDataset: Symbol.for("ServicioProcesamientoDataset"),
 
   ControladorCatalogo: Symbol.for("ControladorCatalogo"),
   ControladorImagenes: Symbol.for("ControladorImagenes"),

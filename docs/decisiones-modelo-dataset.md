@@ -3,6 +3,14 @@
 > Documento de decisión, no de implementación. Registra **qué** se decidió y **por qué**,
 > para que la justificación sobreviva al código. Fecha: 2026-09-21.
 
+> **Estado: implementado (2026-09-23)** — ver la sección "Estado del módulo dataset/YOLO" en
+> `CLAUDE.md` para el flujo real (`indexar:dataset` → `detectar.py` → `cargar:detecciones` →
+> revisión en `/dataset`). Quedó pendiente: el export efímero para entrenar (decisión 5),
+> `capturado_en` (decisión abierta 1) y migrar `clasificacion_imagen_dataset` si tiene datos en
+> alguna PC (se dejó la tabla sin usar en vez de dropearla directamente). Los problemas #1–#21 de
+> más abajo quedaron resueltos por el rediseño salvo donde se indique lo contrario; los de
+> "Reproducibilidad" (#22–#25) siguen abiertos, son del pipeline de scripts, no del modelo de datos.
+
 ## El problema
 
 El dataset pasó de 3.964 a ~48.357 imágenes (llegó `hospicio` con 44.393). El diseño actual

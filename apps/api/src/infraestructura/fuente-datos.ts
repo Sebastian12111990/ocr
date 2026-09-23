@@ -7,8 +7,10 @@ import { Imagen } from "../features/imagenes/imagen.entidad.js";
 import { Preset } from "../features/presets/preset.entidad.js";
 import { EntrenamientoYolo } from "../features/entrenamientos/entrenamiento-yolo.entidad.js";
 import { MetricaEpoca } from "../features/entrenamientos/metrica-epoca.entidad.js";
-import { ClasificacionImagenDataset } from "../features/dataset/clasificacion-imagen-dataset.entidad.js";
-import { ProcedenciaImagen } from "../features/dataset/procedencia-imagen.entidad.js";
+import { ImagenDataset } from "../features/dataset/imagen-dataset.entidad.js";
+import { TipoEtiqueta } from "../features/dataset/tipo-etiqueta.entidad.js";
+import { EtiquetaImagen } from "../features/dataset/etiqueta-imagen.entidad.js";
+import { DeteccionImagen } from "../features/dataset/deteccion-imagen.entidad.js";
 
 export const fuenteDatos = new DataSource({
   type: "postgres",
@@ -24,8 +26,10 @@ export const fuenteDatos = new DataSource({
     CandidatoEjecucion,
     EntrenamientoYolo,
     MetricaEpoca,
-    ClasificacionImagenDataset,
-    ProcedenciaImagen,
+    ImagenDataset,
+    TipoEtiqueta,
+    EtiquetaImagen,
+    DeteccionImagen,
   ],
   migrations: ["src/migraciones/*.ts"],
   synchronize: false,

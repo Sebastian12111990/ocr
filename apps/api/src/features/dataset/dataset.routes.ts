@@ -9,15 +9,16 @@ export function crearRutasDataset(contenedor: Container): Router {
   const controlador = contenedor.get<ControladorDataset>(TIPOS.ControladorDataset);
 
   router.get("/resumen", controlador.obtenerResumen);
-  router.get("/todas", controlador.listarTodas);
-  router.get("/muestra", controlador.listarMuestra);
-  router.get("/imagen/:origen/:nombre", controlador.obtenerImagen);
-  router.get("/clasificaciones", controlador.listarClasificaciones);
-  router.get("/clasificadas", controlador.listarClasificadas);
-  router.post("/clasificaciones", controlador.crearClasificacion);
-  router.delete("/clasificaciones/:id", controlador.eliminarClasificacion);
-  router.post("/procedencia", controlador.importarProcedencia);
-  router.get("/procedencia/plantas", controlador.listarPlantas);
+  router.get("/tipos-etiqueta", controlador.listarTiposEtiqueta);
+  router.get("/fechas", controlador.listarFechas);
+  router.get("/modelos", controlador.listarModelos);
+  router.post("/procesos", controlador.iniciarProcesamiento);
+  router.get("/procesos/actual", controlador.obtenerEstadoProcesamiento);
+  router.get("/imagenes", controlador.listarImagenes);
+  router.get("/imagenes/:id/archivo", controlador.obtenerArchivo);
+  router.put("/imagenes/:id/etiquetas/:clave", controlador.asignarEtiqueta);
+  router.delete("/imagenes/:id/etiquetas/:clave", controlador.quitarEtiqueta);
+  router.patch("/detecciones/:id", controlador.fijarVeredicto);
 
   return router;
 }

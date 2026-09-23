@@ -98,8 +98,8 @@ if ([int]($totalTablas.Trim()) -eq 0) {
 Write-Host ""
 Write-Host "=== 8/8 Listo ===" -ForegroundColor Green
 Write-Host "Pendiente manual:"
-Write-Host "  - .env (raiz) y apps\api\.env.development: RUTA_DATASET_YOLO / YOLO_DATASET_DIR deben apuntar a la MISMA ruta en esta PC"
-Write-Host "  - Copia la carpeta del dataset (ej. D:\patentes Data Set) a esta PC si todavia no esta"
+Write-Host "  - .env (raiz) y apps\api\.env.development: RUTA_IMAGENES_DATASET / YOLO_IMAGENES_DIR deben apuntar a la MISMA ruta en esta PC"
+Write-Host "  - Copia la carpeta de imagenes crudas del dataset (ej. D:\img_dataset) a esta PC si todavia no esta"
 Write-Host "  - services\cv\.env: DIRECTORIO_IMAGENES (opcional, usa un ejemplo del repo si esta vacio)"
 Write-Host "  - services\cv\.env: TESSERACT_CMD debe apuntar al tesseract.exe DE ESTA PC (o quedar vacio si esta en el PATH)"
 Write-Host "  - Tesseract-OCR debe estar instalado en el sistema aparte (no lo instala este script): https://github.com/UB-Mannheim/tesseract/wiki"

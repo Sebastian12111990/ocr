@@ -1,287 +1,363 @@
-import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
 import { inject, injectable } from "inversify";
-import type { Repository } from "typeorm";
+import { In, IsNull, Not, type Repository, type SelectQueryBuilder } from "typeorm";
 
-import {
-  ClasificacionImagenDataset,
-  type MotivoCasoDificil,
-  type PerspectivaClasificacion,
-} from "./clasificacion-imagen-dataset.entidad.js";
-import { ProcedenciaImagen } from "./procedencia-imagen.entidad.js";
+import { DeteccionImagen } from "./deteccion-imagen.entidad.js";
+import { EtiquetaImagen } from "./etiqueta-imagen.entidad.js";
+import { ImagenDataset } from "./imagen-dataset.entidad.js";
+import { TipoEtiqueta } from "./tipo-etiqueta.entidad.js";
 import type {
-  CajaNormalizada,
-  ClasificacionImagen,
-  ImagenDataset,
-  MuestraClasificada,
-  MuestraDataset,
-  OrigenImagenDataset,
-  ProcedenciaLote,
+  FilaDeteccionCsv,
+  FiltrosListarImagenes,
+  FiltrosResumenDataset,
+  ImagenDatasetResumida,
+  PaginaImagenesDataset,
+  ResultadoCargaDetecciones,
   ResumenDataset,
-  ResumenPlanta,
+  TipoEtiquetaResumen,
+  VeredictoDeteccion,
+  VistaDataset,
 } from "./dataset.types.js";
 import { TIPOS } from "../../contenedor/tipos.js";
 import { entorno } from "../../config/env.js";
-import { ErrorNoEncontrado, ErrorValidacion } from "../../shared/http/error-aplicacion.js";
+import { ErrorConflicto, ErrorNoEncontrado, ErrorValidacion } from "../../shared/http/error-aplicacion.js";
 
-const CARPETAS_ORIGEN: Record<OrigenImagenDataset, string> = {
-  dataset: "dataset",
-  sin_vehiculo: "sin_vehiculo",
-  sin_deteccion: "sin_deteccion",
-};
+/** Ver docs/decisiones-modelo-dataset.md — "el criterio" de las vistas calculadas. */
+export const CLASES_VEHICULO = ["car", "truck", "bus", "motorcycle"];
+export const CLASE_PATENTE = "patente";
 
-/** Solo nombres de archivo planos, sin separadores ni `..` — evita path traversal. */
-const NOMBRE_ARCHIVO_VALIDO = /^[A-Za-z0-9_-]+\.JPG$/;
+const VISTAS: VistaDataset[] = [
+  "todas",
+  "con_patente",
+  "vehiculo_sin_patente",
+  "sin_vehiculo_con_patente",
+  "sin_deteccion",
+];
+
+const EXISTE_VEHICULO =
+  "exists (select 1 from deteccion_imagen dv where dv.imagen_id = imagen.id and dv.clase in (:...clasesVehiculo))";
+const EXISTE_PATENTE =
+  "exists (select 1 from deteccion_imagen dp where dp.imagen_id = imagen.id and dp.clase = :clasePatente)";
+
+const TAMANO_LOTE_CARGA = 1000;
 
 @injectable()
 export class ServicioDataset {
-  private readonly raiz = entorno.RUTA_DATASET_YOLO;
+  private readonly raiz = entorno.RUTA_IMAGENES_DATASET;
 
   constructor(
-    @inject(TIPOS.RepositorioClasificacionDataset)
-    private readonly repositorioClasificacion: Repository<ClasificacionImagenDataset>,
-    @inject(TIPOS.RepositorioProcedenciaImagen)
-    private readonly repositorioProcedencia: Repository<ProcedenciaImagen>,
+    @inject(TIPOS.RepositorioImagenDataset) private readonly repositorioImagenes: Repository<ImagenDataset>,
+    @inject(TIPOS.RepositorioTipoEtiqueta) private readonly repositorioTipos: Repository<TipoEtiqueta>,
+    @inject(TIPOS.RepositorioEtiquetaImagen) private readonly repositorioEtiquetas: Repository<EtiquetaImagen>,
+    @inject(TIPOS.RepositorioDeteccionImagen) private readonly repositorioDetecciones: Repository<DeteccionImagen>,
   ) {}
 
-  async obtenerResumen(): Promise<ResumenDataset> {
-    const [dataset, sinVehiculo, sinDeteccion, labels] = await Promise.all([
-      this.contarJpg("dataset"),
-      this.contarJpg("sin_vehiculo"),
-      this.contarJpg("sin_deteccion"),
-      this.listarLabels(),
+  /**
+   * Sin filtros cuenta sobre todo el dataset; con `planta`/`fechaDesde`/`fechaHasta`/etiqueta
+   * cuenta solo sobre ese subconjunto — así las pestañas reflejan el filtro activo en la vista.
+   */
+  async obtenerResumen(filtros: FiltrosResumenDataset = {}): Promise<ResumenDataset> {
+    const base = { vista: "todas" as const, ...filtros };
+
+    const queryPorVista = this.construirQueryBase(base)
+      .select("count(*)", "total")
+      .addSelect(`count(*) filter (where ${EXISTE_PATENTE})`, "con_patente")
+      .addSelect(`count(*) filter (where ${EXISTE_VEHICULO} and not ${EXISTE_PATENTE})`, "vehiculo_sin_patente")
+      .addSelect(`count(*) filter (where not ${EXISTE_VEHICULO} and ${EXISTE_PATENTE})`, "sin_vehiculo_con_patente")
+      .addSelect(`count(*) filter (where not ${EXISTE_VEHICULO} and not ${EXISTE_PATENTE})`, "sin_deteccion")
+      .setParameters({ clasePatente: CLASE_PATENTE, clasesVehiculo: CLASES_VEHICULO });
+
+    // porPlanta siempre lista todas las plantas sin filtrar (ni por planta ni por fecha): si se
+    // filtrara por fecha, el select de "Planta" perdería la opción elegida en cuanto no tuviera
+    // imágenes en ese rango — MUI la muestra en blanco aunque el estado siga siendo válido.
+    const [totalImagenes, porPlantaCrudo, porVistaCrudo, porEtiquetaCrudo, modelosCrudo] = await Promise.all([
+      this.construirQueryBase(base).getCount(),
+      this.repositorioImagenes
+        .createQueryBuilder("imagen")
+        .select("imagen.planta", "planta")
+        .addSelect("count(*)", "total")
+        .groupBy("imagen.planta")
+        .getRawMany<{ planta: string | null; total: string }>(),
+      queryPorVista.getRawOne<Record<VistaDataset, string> & { total: string }>(),
+      this.repositorioEtiquetas
+        .createQueryBuilder("etiqueta")
+        .select("etiqueta.tipoClave", "clave")
+        .addSelect("count(*)", "total")
+        .groupBy("etiqueta.tipoClave")
+        .getRawMany<{ clave: string; total: string }>(),
+      this.repositorioDetecciones
+        .createQueryBuilder("deteccion")
+        .select("distinct deteccion.modelo", "modelo")
+        .orderBy("deteccion.modelo", "ASC")
+        .getRawMany<{ modelo: string }>(),
     ]);
 
-    let labelsVacios = 0;
-    let labelsConContenido = 0;
-    await Promise.all(
-      labels.map(async (archivo) => {
-        const info = await stat(path.join(this.raiz, "labels", archivo));
-        if (info.size === 0) labelsVacios += 1;
-        else labelsConContenido += 1;
-      }),
-    );
+    const porVista = Object.fromEntries(VISTAS.map((vista) => [vista, Number(porVistaCrudo?.[vista] ?? 0)])) as Record<
+      VistaDataset,
+      number
+    >;
+    porVista.todas = totalImagenes;
 
     return {
-      dataset,
-      sinVehiculo,
-      sinDeteccion,
-      // `sin_deteccion` es un subconjunto de imágenes que salieron de `dataset` (vehículo sin
-      // patente) — no son imágenes originales adicionales, por eso no se suman acá.
-      totalImagenes: dataset + sinVehiculo,
-      labelsConContenido,
-      labelsVacios,
+      totalImagenes,
+      porPlanta: porPlantaCrudo.map((fila) => ({ planta: fila.planta, total: Number(fila.total) })),
+      porVista,
+      porEtiqueta: porEtiquetaCrudo.map((fila) => ({ clave: fila.clave, total: Number(fila.total) })),
+      modelos: modelosCrudo.map((fila) => fila.modelo),
       actualizadoEn: new Date().toISOString(),
     };
   }
 
-  /** Todas las imágenes originales: `dataset` + `sin_vehiculo` combinadas (sin duplicar `sin_deteccion`, que es subconjunto de `dataset`). */
-  async listarTodas(limite: number, desplazamiento = 0): Promise<MuestraDataset> {
-    const [nombresDataset, nombresSinVehiculo] = await Promise.all([
-      this.listarNombresCarpeta("dataset"),
-      this.listarNombresCarpeta("sin_vehiculo"),
+  /** Un día por fila: cuántas imágenes hay y cuántas ya tienen alguna detección cargada (de
+   * cualquier modelo) — para marcar en el calendario qué días tienen datos y cuáles ya se procesaron. */
+  async listarFechas(planta: string): Promise<{ fecha: string; total: number; procesadas: number }[]> {
+    const filas = await this.repositorioImagenes
+      .createQueryBuilder("imagen")
+      .select("to_char(imagen.fecha, 'YYYY-MM-DD')", "fecha")
+      .addSelect("count(*)", "total")
+      .addSelect(
+        "count(*) filter (where exists (select 1 from deteccion_imagen d where d.imagen_id = imagen.id))",
+        "procesadas",
+      )
+      .where("imagen.planta = :planta", { planta })
+      .andWhere("imagen.fecha is not null")
+      .groupBy("imagen.fecha")
+      .orderBy("imagen.fecha", "ASC")
+      .getRawMany<{ fecha: string; total: string; procesadas: string }>();
+
+    return filas.map((fila) => ({ fecha: fila.fecha, total: Number(fila.total), procesadas: Number(fila.procesadas) }));
+  }
+
+  async listarTiposEtiqueta(): Promise<TipoEtiquetaResumen[]> {
+    const tipos = await this.repositorioTipos.find({
+      where: { activa: true },
+      order: { familia: "ASC", orden: "ASC" },
+    });
+    return tipos.map((tipo) => ({ clave: tipo.clave, nombre: tipo.nombre, familia: tipo.familia, orden: tipo.orden }));
+  }
+
+  async listarImagenes(filtros: FiltrosListarImagenes): Promise<PaginaImagenesDataset> {
+    const base = this.construirQueryBase(filtros);
+    const total = await base.clone().getCount();
+
+    const pagina = base
+      .clone()
+      .orderBy("imagen.rutaRelativa", "ASC")
+      .take(filtros.limite + 1);
+    if (filtros.cursor) pagina.andWhere("imagen.rutaRelativa > :cursor", { cursor: filtros.cursor });
+
+    const filas = await pagina.getMany();
+    const hayMas = filas.length > filtros.limite;
+    const filasPagina = hayMas ? filas.slice(0, filtros.limite) : filas;
+    const siguienteCursor = hayMas ? filasPagina[filasPagina.length - 1].rutaRelativa : null;
+
+    const ids = filasPagina.map((fila) => fila.id);
+    const [cajas, etiquetas] = await Promise.all([
+      ids.length ? this.repositorioDetecciones.find({ where: { imagenId: In(ids) } }) : [],
+      ids.length ? this.repositorioEtiquetas.find({ where: { imagenId: In(ids) } }) : [],
     ]);
 
-    const combinados = [
-      ...nombresDataset.map((nombre) => ({ nombre, origen: "dataset" as const })),
-      ...nombresSinVehiculo.map((nombre) => ({ nombre, origen: "sin_vehiculo" as const })),
-    ].sort((a, b) => a.nombre.localeCompare(b.nombre));
+    const cajasPorImagen = agruparPor(cajas, (caja) => caja.imagenId);
+    const etiquetasPorImagen = agruparPor(etiquetas, (etiqueta) => etiqueta.imagenId);
 
-    const total = combinados.length;
-    const pagina = combinados.slice(desplazamiento, desplazamiento + limite);
-    const imagenes = await Promise.all(
-      pagina.map(async (item) => ({
-        nombre: item.nombre,
-        origen: item.origen,
-        cajas: await this.leerCajas(item.nombre),
+    const imagenes: ImagenDatasetResumida[] = filasPagina.map((fila) => ({
+      id: fila.id,
+      rutaRelativa: fila.rutaRelativa,
+      planta: fila.planta,
+      fecha: fila.fecha,
+      ancho: fila.ancho,
+      alto: fila.alto,
+      cajas: (cajasPorImagen.get(fila.id) ?? []).map((caja) => ({
+        id: caja.id,
+        modelo: caja.modelo,
+        clase: caja.clase,
+        confianza: caja.confianza,
+        xc: caja.xc,
+        yc: caja.yc,
+        ancho: caja.ancho,
+        alto: caja.alto,
+        veredicto: caja.veredicto,
       })),
-    );
-    return { imagenes, total };
-  }
-
-  async listarMuestra(
-    origen: OrigenImagenDataset,
-    limite: number,
-    desplazamiento = 0,
-    opciones: { soloConCaja?: boolean; soloSinCaja?: boolean; excluirClasificadas?: boolean } = {},
-  ): Promise<MuestraDataset> {
-    const nombres = await this.listarNombresCarpeta(origen);
-
-    let candidatos: { nombre: string; cajas: CajaNormalizada[] | null }[] = nombres.map((nombre) => ({
-      nombre,
-      cajas: null,
+      etiquetas: (etiquetasPorImagen.get(fila.id) ?? []).map((etiqueta) => ({
+        clave: etiqueta.tipoClave,
+        origen: etiqueta.origen,
+        nota: etiqueta.nota,
+      })),
     }));
 
-    if (opciones.soloConCaja || opciones.soloSinCaja) {
-      const conCajas = await Promise.all(
-        candidatos.map(async (candidato) => ({ nombre: candidato.nombre, cajas: await this.leerCajas(candidato.nombre) })),
-      );
-      candidatos = opciones.soloSinCaja
-        ? conCajas.filter((candidato) => candidato.cajas.length === 0)
-        : conCajas.filter((candidato) => candidato.cajas.length > 0);
-    }
-
-    if (opciones.excluirClasificadas) {
-      const clasificadas = await this.repositorioClasificacion.find({
-        where: { origen },
-        select: { nombreArchivo: true },
-      });
-      const nombresClasificados = new Set(clasificadas.map((c) => c.nombreArchivo));
-      candidatos = candidatos.filter((candidato) => !nombresClasificados.has(candidato.nombre));
-    }
-
-    const total = candidatos.length;
-    const pagina = candidatos.slice(desplazamiento, desplazamiento + limite);
-    const imagenes = await Promise.all(
-      pagina.map(async (candidato) => ({
-        nombre: candidato.nombre,
-        origen,
-        cajas: candidato.cajas ?? (await this.leerCajas(candidato.nombre)),
-      })),
-    );
-    return { imagenes, total };
+    return { imagenes, total, siguienteCursor };
   }
 
-  async listarClasificaciones(perspectiva?: PerspectivaClasificacion): Promise<ClasificacionImagen[]> {
-    const registros = await this.repositorioClasificacion.find({
-      where: perspectiva ? { perspectiva } : {},
-      order: { creadoEn: "DESC" },
-    });
-    return registros.map(aClasificacionRespuesta);
-  }
+  async obtenerRutaImagen(id: string): Promise<string> {
+    const imagen = await this.repositorioImagenes.findOneBy({ id });
+    if (!imagen) throw new ErrorNoEncontrado(`No existe la imagen: ${id}`);
 
-  async listarClasificadas(
-    perspectiva: PerspectivaClasificacion,
-    limite: number,
-    desplazamiento = 0,
-  ): Promise<MuestraClasificada> {
-    const [registros, total] = await this.repositorioClasificacion.findAndCount({
-      where: { perspectiva },
-      order: { creadoEn: "DESC" },
-      skip: desplazamiento,
-      take: limite,
-    });
-
-    const imagenes = await Promise.all(
-      registros.map(async (registro) => ({
-        nombre: registro.nombreArchivo,
-        origen: registro.origen,
-        cajas: await this.leerCajas(registro.nombreArchivo),
-        clasificacionId: registro.id,
-      })),
-    );
-    return { imagenes, total };
-  }
-
-  async clasificar(datos: {
-    nombreArchivo: string;
-    origen: OrigenImagenDataset;
-    perspectiva: PerspectivaClasificacion;
-    motivo?: MotivoCasoDificil | null;
-  }): Promise<ClasificacionImagen> {
-    if (!(datos.origen in CARPETAS_ORIGEN)) throw new ErrorValidacion(`Origen inválido: ${datos.origen}`);
-
-    const existente = await this.repositorioClasificacion.findOne({
-      where: { nombreArchivo: datos.nombreArchivo, origen: datos.origen },
-    });
-
-    const registro =
-      existente ??
-      this.repositorioClasificacion.create({ nombreArchivo: datos.nombreArchivo, origen: datos.origen });
-    registro.perspectiva = datos.perspectiva;
-    registro.motivo = datos.motivo ?? null;
-
-    const guardado = await this.repositorioClasificacion.save(registro);
-    return aClasificacionRespuesta(guardado);
-  }
-
-  async eliminarClasificacion(id: string): Promise<void> {
-    const resultado = await this.repositorioClasificacion.delete({ id });
-    if (!resultado.affected) throw new ErrorNoEncontrado(`No existe la clasificación: ${id}`);
-  }
-
-  /**
-   * Carga masiva desde `procedencia.csv` (ver scripts/cargar-procedencia.ts).
-   * Upsert por `nombreArchivo`: si la imagen ya tenía procedencia registrada, se
-   * actualiza en vez de duplicar — permite re-correr el loader sin miedo.
-   */
-  async importarProcedencia(lote: ProcedenciaLote[]): Promise<{ insertados: number }> {
-    if (lote.length === 0) return { insertados: 0 };
-    await this.repositorioProcedencia.upsert(lote, { conflictPaths: ["nombreArchivo"] });
-    return { insertados: lote.length };
-  }
-
-  async listarPlantas(): Promise<ResumenPlanta[]> {
-    const filas = await this.repositorioProcedencia
-      .createQueryBuilder("procedencia")
-      .select("procedencia.planta", "planta")
-      .addSelect("count(*)", "total")
-      .groupBy("procedencia.planta")
-      .orderBy("planta", "ASC")
-      .getRawMany<{ planta: string; total: string }>();
-
-    return filas.map((fila) => ({ planta: fila.planta, total: Number(fila.total) }));
-  }
-
-  async obtenerRutaImagen(origen: OrigenImagenDataset, nombre: string): Promise<string> {
-    if (!(origen in CARPETAS_ORIGEN)) throw new ErrorValidacion(`Origen inválido: ${origen}`);
-    if (!NOMBRE_ARCHIVO_VALIDO.test(nombre)) throw new ErrorValidacion("Nombre de archivo inválido");
-
-    const ruta = path.join(this.raiz, CARPETAS_ORIGEN[origen], nombre);
-    try {
-      await stat(ruta);
-    } catch {
-      throw new ErrorNoEncontrado(`No existe la imagen: ${nombre}`);
+    const ruta = path.resolve(this.raiz, imagen.rutaRelativa);
+    const raizResuelta = path.resolve(this.raiz);
+    if (!ruta.startsWith(raizResuelta + path.sep)) {
+      throw new ErrorValidacion("Ruta de imagen fuera de la raíz del dataset");
     }
     return ruta;
   }
 
-  private async contarJpg(carpeta: string): Promise<number> {
-    const archivos = await readdir(path.join(this.raiz, carpeta));
-    return archivos.filter((nombre) => nombre.toUpperCase().endsWith(".JPG")).length;
+  /** Toggle idempotente: crear o actualizar la nota de una etiqueta ya asignada. */
+  async asignarEtiqueta(imagenId: string, tipoClave: string, nota: string | null): Promise<void> {
+    const [imagen, tipo] = await Promise.all([
+      this.repositorioImagenes.findOneBy({ id: imagenId }),
+      this.repositorioTipos.findOneBy({ clave: tipoClave }),
+    ]);
+    if (!imagen) throw new ErrorNoEncontrado(`No existe la imagen: ${imagenId}`);
+    if (!tipo) throw new ErrorNoEncontrado(`No existe el tipo de etiqueta: ${tipoClave}`);
+
+    await this.repositorioEtiquetas.upsert(
+      { imagenId, tipoClave, origen: "manual", nota },
+      { conflictPaths: ["imagenId", "tipoClave"] },
+    );
   }
 
-  private async listarNombresCarpeta(origen: OrigenImagenDataset): Promise<string[]> {
-    const carpeta = path.join(this.raiz, CARPETAS_ORIGEN[origen]);
-    return (await readdir(carpeta)).filter((nombre) => nombre.toUpperCase().endsWith(".JPG")).sort();
+  /** Idempotente: quitar una etiqueta que ya no existe no es un error. */
+  async quitarEtiqueta(imagenId: string, tipoClave: string): Promise<void> {
+    await this.repositorioEtiquetas.delete({ imagenId, tipoClave });
   }
 
-  private async listarLabels(): Promise<string[]> {
-    const archivos = await readdir(path.join(this.raiz, "labels"));
-    return archivos.filter((nombre) => nombre.endsWith(".txt") && nombre !== "classes.txt");
+  async fijarVeredicto(deteccionId: string, veredicto: VeredictoDeteccion | null): Promise<void> {
+    const resultado = await this.repositorioDetecciones.update({ id: deteccionId }, { veredicto });
+    if (!resultado.affected) throw new ErrorNoEncontrado(`No existe la detección: ${deteccionId}`);
   }
 
-  private async leerCajas(nombreImagen: string): Promise<CajaNormalizada[]> {
-    const stem = nombreImagen.replace(/\.JPG$/i, "");
-    const rutaLabel = path.join(this.raiz, "labels", `${stem}.txt`);
+  private construirQueryBase(
+    filtros: Omit<FiltrosListarImagenes, "cursor" | "limite">,
+  ): SelectQueryBuilder<ImagenDataset> {
+    const qb = this.repositorioImagenes.createQueryBuilder("imagen");
 
-    let contenido: string;
-    try {
-      contenido = await readFile(rutaLabel, "utf-8");
-    } catch {
-      return [];
+    if (filtros.planta) qb.andWhere("imagen.planta = :planta", { planta: filtros.planta });
+    if (filtros.fechaDesde) qb.andWhere("imagen.fecha >= :fechaDesde", { fechaDesde: filtros.fechaDesde });
+    if (filtros.fechaHasta) qb.andWhere("imagen.fecha <= :fechaHasta", { fechaHasta: filtros.fechaHasta });
+    if (filtros.etiqueta) {
+      qb.andWhere(
+        `exists (select 1 from etiqueta_imagen ei where ei.imagen_id = imagen.id and ei.tipo_clave = :etiquetaFiltro)`,
+        { etiquetaFiltro: filtros.etiqueta },
+      );
+    }
+    if (filtros.sinEtiqueta) {
+      qb.andWhere(
+        `not exists (select 1 from etiqueta_imagen ei2 where ei2.imagen_id = imagen.id and ei2.tipo_clave = :sinEtiquetaFiltro)`,
+        { sinEtiquetaFiltro: filtros.sinEtiqueta },
+      );
     }
 
-    return contenido
-      .trim()
-      .split("\n")
-      .filter((linea) => linea.trim().length > 0)
-      .map((linea) => {
-        const partes = linea.trim().split(/\s+/).map(Number);
-        const [, xc, yc, ancho, alto] = partes;
-        return { xc: xc ?? 0, yc: yc ?? 0, ancho: ancho ?? 0, alto: alto ?? 0 };
+    this.aplicarFiltroVista(qb, filtros.vista);
+    return qb;
+  }
+
+  private aplicarFiltroVista(qb: SelectQueryBuilder<ImagenDataset>, vista: VistaDataset): void {
+    if (vista === "todas") return;
+
+    if (vista === "con_patente") {
+      qb.andWhere(EXISTE_PATENTE, { clasePatente: CLASE_PATENTE });
+      return;
+    }
+    if (vista === "vehiculo_sin_patente") {
+      qb.andWhere(EXISTE_VEHICULO, { clasesVehiculo: CLASES_VEHICULO }).andWhere(`not ${EXISTE_PATENTE}`, {
+        clasePatente: CLASE_PATENTE,
       });
+      return;
+    }
+    if (vista === "sin_vehiculo_con_patente") {
+      qb.andWhere(`not ${EXISTE_VEHICULO}`, { clasesVehiculo: CLASES_VEHICULO }).andWhere(EXISTE_PATENTE, {
+        clasePatente: CLASE_PATENTE,
+      });
+      return;
+    }
+    qb.andWhere(`not ${EXISTE_VEHICULO}`, { clasesVehiculo: CLASES_VEHICULO }).andWhere(`not ${EXISTE_PATENTE}`, {
+      clasePatente: CLASE_PATENTE,
+    });
+  }
+
+  /**
+   * Carga un lote de detecciones de un modelo. Con `reemplazar: true` borra solo las filas de
+   * `deteccion_imagen` cuyo `imagen_id` está en `filas` (no todo el modelo) — re-procesar un
+   * subconjunto (una planta/rango) no debe tocar detecciones de otras imágenes ya cargadas con
+   * el mismo modelo. Se niega si alguna de esas filas ya tiene veredicto humano.
+   */
+  async cargarDetecciones(
+    filas: FilaDeteccionCsv[],
+    modelo: string,
+    opciones: { reemplazar: boolean },
+  ): Promise<ResultadoCargaDetecciones> {
+    if (filas.length === 0) return { cargadas: 0, sinImagen: 0 };
+
+    const idsPorRuta = new Map(
+      (await this.repositorioImagenes.find({ select: { id: true, rutaRelativa: true } })).map((imagen) => [
+        imagen.rutaRelativa,
+        imagen.id,
+      ]),
+    );
+
+    const filasConImagen: { imagenId: string; fila: FilaDeteccionCsv }[] = [];
+    let sinImagen = 0;
+    for (const fila of filas) {
+      const imagenId = idsPorRuta.get(fila.rutaRelativa);
+      if (!imagenId) {
+        sinImagen += 1;
+        continue;
+      }
+      filasConImagen.push({ imagenId, fila });
+    }
+    const idsImagenes = filasConImagen.map((f) => f.imagenId);
+
+    if (idsImagenes.length > 0 && !opciones.reemplazar) {
+      const existentes = await this.repositorioDetecciones.count({ where: { modelo, imagenId: In(idsImagenes) } });
+      if (existentes > 0) {
+        throw new ErrorConflicto(
+          `Ya hay ${existentes} detecciones del modelo "${modelo}" para estas imágenes. Pasá reemplazar para reemplazarlas.`,
+        );
+      }
+    }
+
+    await this.repositorioImagenes.manager.transaction(async (manager) => {
+      if (opciones.reemplazar && idsImagenes.length > 0) {
+        const conVeredicto = await manager.count(DeteccionImagen, {
+          where: { modelo, imagenId: In(idsImagenes), veredicto: Not(IsNull()) },
+        });
+        if (conVeredicto > 0) {
+          throw new ErrorConflicto(
+            `${conVeredicto} detecciones del modelo "${modelo}" en este subconjunto ya tienen veredicto humano — no se reemplazan.`,
+          );
+        }
+        await manager.delete(DeteccionImagen, { modelo, imagenId: In(idsImagenes) });
+      }
+
+      for (let i = 0; i < filasConImagen.length; i += TAMANO_LOTE_CARGA) {
+        const lote = filasConImagen.slice(i, i + TAMANO_LOTE_CARGA).map(({ imagenId, fila }) =>
+          manager.create(DeteccionImagen, {
+            imagenId,
+            modelo,
+            clase: fila.clase,
+            confianza: fila.confianza,
+            xc: fila.xc,
+            yc: fila.yc,
+            ancho: fila.ancho,
+            alto: fila.alto,
+            veredicto: null,
+          }),
+        );
+        await manager.insert(DeteccionImagen, lote);
+      }
+    });
+
+    return { cargadas: filasConImagen.length, sinImagen };
   }
 }
 
-function aClasificacionRespuesta(registro: ClasificacionImagenDataset): ClasificacionImagen {
-  return {
-    id: registro.id,
-    nombreArchivo: registro.nombreArchivo,
-    origen: registro.origen,
-    perspectiva: registro.perspectiva,
-    motivo: registro.motivo,
-    creadoEn: registro.creadoEn.toISOString(),
-  };
+function agruparPor<T, K>(items: T[], clave: (item: T) => K): Map<K, T[]> {
+  const mapa = new Map<K, T[]>();
+  for (const item of items) {
+    const k = clave(item);
+    const grupo = mapa.get(k);
+    if (grupo) grupo.push(item);
+    else mapa.set(k, [item]);
+  }
+  return mapa;
 }

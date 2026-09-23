@@ -1,21 +1,15 @@
 import { Paper, Stack, Typography } from "@mui/material";
 
+import { ETIQUETAS_VISTA } from "../dataset.types";
 import type { ResumenDataset } from "../dataset.types";
 
-interface Tarjeta {
-  etiqueta: string;
-  valor: number;
-  color?: "success.main" | "warning.main" | "error.main" | "text.primary";
-}
-
 export function ResumenDatasetCards({ resumen }: { resumen: ResumenDataset }) {
-  const tarjetas: Tarjeta[] = [
-    { etiqueta: "Total imágenes leídas", valor: resumen.totalImagenes, color: "text.primary" },
-    { etiqueta: "Con vehículo (dataset)", valor: resumen.dataset, color: "success.main" },
-    { etiqueta: "Sin vehículo", valor: resumen.sinVehiculo, color: "warning.main" },
-    { etiqueta: "Sin detección de patente", valor: resumen.sinDeteccion, color: "error.main" },
-    { etiqueta: "Labels con caja", valor: resumen.labelsConContenido, color: "success.main" },
-    { etiqueta: "Labels vacíos", valor: resumen.labelsVacios, color: "text.primary" },
+  const tarjetas: { etiqueta: string; valor: number }[] = [
+    { etiqueta: "Total imágenes", valor: resumen.totalImagenes },
+    { etiqueta: ETIQUETAS_VISTA.con_patente, valor: resumen.porVista.con_patente },
+    { etiqueta: ETIQUETAS_VISTA.vehiculo_sin_patente, valor: resumen.porVista.vehiculo_sin_patente },
+    { etiqueta: ETIQUETAS_VISTA.sin_vehiculo_con_patente, valor: resumen.porVista.sin_vehiculo_con_patente },
+    { etiqueta: ETIQUETAS_VISTA.sin_deteccion, valor: resumen.porVista.sin_deteccion },
   ];
 
   return (
@@ -25,7 +19,7 @@ export function ResumenDatasetCards({ resumen }: { resumen: ResumenDataset }) {
           <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {tarjeta.etiqueta}
           </Typography>
-          <Typography variant="h5" sx={{ fontWeight: 700, color: tarjeta.color, fontVariantNumeric: "tabular-nums" }}>
+          <Typography variant="h5" sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
             {tarjeta.valor.toLocaleString("es-CL")}
           </Typography>
         </Paper>
