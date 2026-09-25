@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  AppBar,
   Box,
   Chip,
   CircularProgress,
   Divider,
   Paper,
   Stack,
-  Toolbar,
   Typography,
 } from "@mui/material";
 
@@ -43,14 +41,6 @@ export function EntrenamientosPage() {
 
   return (
     <Stack sx={{ height: "100%" }}>
-      <AppBar position="static" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: "divider" }}>
-        <Toolbar variant="dense">
-          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-            Visualizador de entrenamientos YOLO
-          </Typography>
-        </Toolbar>
-      </AppBar>
-
       <Box sx={{ p: 2.5, overflow: "auto", flex: 1 }}>
         {isLoading && <CircularProgress size={24} />}
         {isError && (
@@ -61,13 +51,11 @@ export function EntrenamientosPage() {
 
         {entrenamientos && (
           <Stack spacing={2.5}>
-            <Paper variant="outlined" sx={{ p: 2 }}>
-              <TablaEntrenamientos
-                entrenamientos={entrenamientosFiltrados}
-                seleccionadoId={seleccionado?.id ?? null}
-                onSeleccionar={setSeleccionado}
-              />
-            </Paper>
+            <TablaEntrenamientos
+              entrenamientos={entrenamientosFiltrados}
+              seleccionadoId={seleccionado?.id ?? null}
+              onSeleccionar={setSeleccionado}
+            />
 
             {seleccionado && (
               <Paper variant="outlined" sx={{ p: 2 }}>

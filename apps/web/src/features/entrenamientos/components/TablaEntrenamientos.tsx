@@ -1,14 +1,6 @@
-import {
-  Chip,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Typography,
-} from "@mui/material";
+import { Chip, Typography } from "@mui/material";
 
+import { UkoTable, type UkoTableColumn } from "@/shared/componentes/table";
 import type { ResumenEntrenamiento, TipoEntrenamientoYolo } from "../entrenamientos.types";
 
 interface TablaEntrenamientosProps {
@@ -42,63 +34,79 @@ function formatearDuracion(ms: number): string {
   return `${(segundos / 60).toFixed(1)} min`;
 }
 
-export function TablaEntrenamientos({ entrenamientos, seleccionadoId, onSeleccionar }: TablaEntrenamientosProps) {
-  if (entrenamientos.length === 0) {
-    return (
-      <Typography variant="body2" sx={{ color: "text.secondary" }}>
-        Todavía no hay corridas registradas.
-      </Typography>
-    );
-  }
+const COLUMNAS: UkoTableColumn<ResumenEntrenamiento>[] = [
+  {
+    id: "nombre",
+    label: "Nombre",
+    minWidth: 330,
+    render: (row) => <Typography variant="body2" sx={{ fontWeight: 500 }}>{row.nombre}</Typography>,
+    sortValue: (row) => row.nombre,
+  },
+  {
+    id: "tipo",
+    label: "Tipo",
+    minWidth: 145,
+    render: (row) => <Chip size="small" color={COLOR_TIPO[row.tipo]} label={ETIQUETA_TIPO[row.tipo]} />,
+    sortValue: (row) => ETIQUETA_TIPO[row.tipo],
+  },
+  {
+    id: "modelo",
+    label: "Modelo base",
+    minWidth: 260,
+    nowrap: true,
+    render: (row) => <Typography variant="body2" sx={{ fontFamily: "monospace" }}>{row.modeloBase}</Typography>,
+    sortValue: (row) => row.modeloBase,
+  },
+  {
+    id: "imagenes",
+    label: "Imágenes",
+    align: "right",
+    minWidth: 120,
+    nowrap: true,
+    render: (row) => row.imagenesConDeteccion !== null
+      ? `${row.imagenesConDeteccion.toLocaleString("es-CL")} / ${row.totalImagenes.toLocaleString("es-CL")}`
+      : row.totalImagenes.toLocaleString("es-CL"),
+    sortValue: (row) => row.totalImagenes,
+  },
+  {
+    id: "map50",
+    label: "mAP50",
+    align: "right",
+    minWidth: 90,
+    nowrap: true,
+    render: (row) => row.metricasFinales?.map50 !== undefined ? row.metricasFinales.map50.toFixed(3) : "—",
+    sortValue: (row) => row.metricasFinales?.map50,
+  },
+  {
+    id: "duracion",
+    label: "Duración",
+    align: "right",
+    minWidth: 110,
+    nowrap: true,
+    render: (row) => formatearDuracion(row.duracionMs),
+    sortValue: (row) => row.duracionMs,
+  },
+  {
+    id: "fecha",
+    label: "Fecha",
+    minWidth: 190,
+    nowrap: true,
+    render: (row) => formatearFecha(row.creadoEn),
+    sortValue: (row) => new Date(row.creadoEn).getTime(),
+  },
+];
 
+export function TablaEntrenamientos({ entrenamientos, seleccionadoId, onSeleccionar }: TablaEntrenamientosProps) {
   return (
-    <TableContainer>
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>Nombre</TableCell>
-            <TableCell>Tipo</TableCell>
-            <TableCell>Modelo base</TableCell>
-            <TableCell align="right">Imágenes</TableCell>
-            <TableCell>mAP50</TableCell>
-            <TableCell align="right">Duración</TableCell>
-            <TableCell>Fecha</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {entrenamientos.map((entrenamiento) => (
-            <TableRow
-              key={entrenamiento.id}
-              hover
-              selected={entrenamiento.id === seleccionadoId}
-              onClick={() => onSeleccionar(entrenamiento)}
-              sx={{ cursor: "pointer" }}
-            >
-              <TableCell>{entrenamiento.nombre}</TableCell>
-              <TableCell>
-                <Chip size="small" color={COLOR_TIPO[entrenamiento.tipo]} label={ETIQUETA_TIPO[entrenamiento.tipo]} />
-              </TableCell>
-              <TableCell>
-                <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
-                  {entrenamiento.modeloBase}
-                </Typography>
-              </TableCell>
-              <TableCell align="right">
-                {entrenamiento.imagenesConDeteccion !== null
-                  ? `${entrenamiento.imagenesConDeteccion} / ${entrenamiento.totalImagenes}`
-                  : entrenamiento.totalImagenes}
-              </TableCell>
-              <TableCell>
-                {entrenamiento.metricasFinales?.map50 !== undefined
-                  ? entrenamiento.metricasFinales.map50.toFixed(3)
-                  : "—"}
-              </TableCell>
-              <TableCell align="right">{formatearDuracion(entrenamiento.duracionMs)}</TableCell>
-              <TableCell>{formatearFecha(entrenamiento.creadoEn)}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
+    <UkoTable
+      ariaLabel="Historial de entrenamientos YOLO"
+      columns={COLUMNAS}
+      rows={entrenamientos}
+      getRowId={(row) => row.id}
+      selectedRowId={seleccionadoId}
+      onRowClick={onSeleccionar}
+      emptyMessage="Todavía no hay corridas registradas."
+      maxHeight="52vh"
+    />
   );
 }

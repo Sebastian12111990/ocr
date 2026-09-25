@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, CalendarMonth } from "@mui/icons-material";
 import { Box, Button, IconButton, Popover, Stack, Tooltip, Typography } from "@mui/material";
 
 import { useListarFechasDatasetQuery } from "../datasetApi";
-import { ALTO_CAMPO_FILTRO, ANCHO_CAMPO_FILTRO } from "../dataset.types";
+import { ALTO_CAMPO_FILTRO } from "../dataset.types";
 
 interface Props {
   planta: string;
@@ -96,7 +96,7 @@ export function SelectorRangoFechas({ planta, fechaDesde, fechaHasta, onCambiar 
         startIcon={<CalendarMonth fontSize="small" />}
         disabled={!planta}
         onClick={alAbrir}
-        sx={{ width: ANCHO_CAMPO_FILTRO, height: ALTO_CAMPO_FILTRO, justifyContent: "flex-start" }}
+        sx={{ width: "100%", height: ALTO_CAMPO_FILTRO, justifyContent: "flex-start" }}
       >
         {etiqueta}
       </Button>

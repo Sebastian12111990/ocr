@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AppBar, Box, Chip, CircularProgress, Stack, Toolbar, Typography } from "@mui/material";
+import { Box, Chip, CircularProgress, Stack, Typography } from "@mui/material";
 
 import { PanelCandidatos } from "@/features/candidatos/components/PanelCandidatos";
 import type { Candidato } from "@/features/candidatos/candidatos.types";
@@ -282,36 +282,23 @@ export function EditorPage() {
 
   return (
     <Stack sx={{ height: "100%" }}>
-      <AppBar position="static" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: "divider" }}>
-        <Toolbar variant="dense" sx={{ gap: 1.25, minWidth: 0 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-            Editor OCR de patentes
+      {ejecucionCargada && (
+        <Stack direction="row" spacing={1} sx={{ py: 1, alignItems: "center", minWidth: 0, flexWrap: "wrap" }}>
+          <Chip size="small" color="info" variant="outlined" label="BD" />
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
+            {formatearFechaHistorica(ejecucionCargada.detalle.creadoEn)}
           </Typography>
-          {ejecucionCargada && (
-            <Stack
-              direction="row"
-              spacing={1}
-              sx={{ alignItems: "center", minWidth: 0, flexWrap: "wrap" }}
-            >
-              <Chip size="small" color="info" variant="outlined" label="BD" />
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                {formatearFechaHistorica(ejecucionCargada.detalle.creadoEn)}
-              </Typography>
-              <Chip
-                size="small"
-                color={ejecucionCargada.detalle.mejorCoincidencia === 100
-                  ? "success"
-                  : ejecucionCargada.detalle.mejorCoincidencia >= 60
-                    ? "warning"
-                    : "default"}
-                label={`Mejor coincidencia: ${formatearCoincidencia(
-                  ejecucionCargada.detalle.mejorCoincidencia,
-                )}%`}
-              />
-            </Stack>
-          )}
-        </Toolbar>
-      </AppBar>
+          <Chip
+            size="small"
+            color={ejecucionCargada.detalle.mejorCoincidencia === 100
+              ? "success"
+              : ejecucionCargada.detalle.mejorCoincidencia >= 60
+                ? "warning"
+                : "default"}
+            label={`Mejor coincidencia: ${formatearCoincidencia(ejecucionCargada.detalle.mejorCoincidencia)}%`}
+          />
+        </Stack>
+      )}
 
       <Box sx={{ display: "flex", flex: 1, minHeight: 0 }}>
         <Stack spacing={2} sx={{ flex: 1, p: 2, minWidth: 0 }}>

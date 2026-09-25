@@ -6,6 +6,7 @@ import path from "node:path";
 import { inject, injectable } from "inversify";
 import { Between, type Repository } from "typeorm";
 
+import { entorno } from "../../config/env.js";
 import { CLASE_PATENTE, CLASES_VEHICULO, ServicioDataset } from "./dataset.service.js";
 import { ImagenDataset } from "./imagen-dataset.entidad.js";
 import type { DatosIniciarProcesamiento, EstadoProcesamiento, FilaDeteccionCsv, ModeloDeteccion } from "./dataset.types.js";
@@ -24,8 +25,15 @@ interface ConfigModelo {
 
 /** Catálogo de modelos que se pueden correr desde el botón "Procesar" — agregar uno acá alcanza. */
 const MODELOS_DISPONIBLES: ConfigModelo[] = [
-  { archivo: "yolo11n.pt", etiqueta: "Vehículos (COCO)", clases: CLASES_VEHICULO, claseComo: null },
+ 
   { archivo: "license-plate-finetune-v1m.pt", etiqueta: "Patentes", clases: null, claseComo: CLASE_PATENTE },
+  { archivo: "yolo11n.pt", etiqueta: "Vehículos (COCO)", clases: CLASES_VEHICULO, claseComo: null },
+  {
+    archivo: "patente-entrenamiento-real-01.pt",
+    etiqueta: "Patentes (fine-tune propio, 2026-09-25)",
+    clases: null,
+    claseComo: CLASE_PATENTE,
+  },
 ];
 const MODELO_DEFECTO = MODELOS_DISPONIBLES[0].archivo;
 
@@ -144,6 +152,8 @@ export class ServicioProcesamientoDataset {
         config.archivo,
         "--lista",
         `runs/${nombreLista}`,
+        "--device",
+        entorno.YOLO_DEVICE,
       ];
       if (config.clases) args.push("--clases", config.clases.join(","));
       if (config.claseComo) args.push("--clase-como", config.claseComo);
@@ -217,6 +227,10 @@ export class ServicioProcesamientoDataset {
       estado: "listo",
       detecciones: resultado.cargadas,
       entrenamientoId: entrenamiento.id,
+      mensaje:
+        resultado.protegidas > 0
+          ? `${resultado.protegidas} imágenes con veredicto humano se dejaron intactas, no se reemplazaron.`
+          : null,
     });
   }
 }

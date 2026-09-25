@@ -1,279 +1,289 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  AppBar,
-  Box,
-  CircularProgress,
-  MenuItem,
-  Stack,
-  Tab,
-  Tabs,
-  TextField,
-  Toolbar,
-  Typography,
-} from "@mui/material";
+import { useMemo } from "react";
+import { Box, Button, CircularProgress, Stack, Typography } from "@mui/material";
+import { ClearOutlined } from "@mui/icons-material";
 
+import { FormProvider, RHFAutocomplete, RHFTextField } from "@/shared/componentes/rhf";
+import { UkoSectionCard } from "@/shared/componentes/cards";
+import { UkoFilterPanel } from "@/shared/componentes/filters";
+import { UkoTabs } from "@/shared/componentes/tabs";
+
+import { BotonAceptarTodas } from "../components/BotonAceptarTodas";
 import { GaleriaImagenes } from "../components/GaleriaImagenes";
+import { PanelAceptarPorConfianza } from "../components/PanelAceptarPorConfianza";
+import { PanelDescartarPorForma } from "../components/PanelDescartarPorForma";
+import { PanelDescartarPorTamanoRelativo } from "../components/PanelDescartarPorTamanoRelativo";
 import { PanelProcesamiento } from "../components/PanelProcesamiento";
 import { ResumenDatasetCards } from "../components/ResumenDatasetCards";
 import { SelectorRangoFechas } from "../components/SelectorRangoFechas";
+import { useAltoEncabezado } from "../hooks/useAltoEncabezado";
+import { useAtajosGaleria } from "../hooks/useAtajosGaleria";
 import {
-  useAsignarEtiquetaMutation,
-  useFijarVeredictoMutation,
-  useListarImagenesDatasetQuery,
+  useFiltrosDataset,
+  VISTAS,
+  type FiltrosDatasetForm,
+  type OpcionFiltro,
+} from "../hooks/useFiltrosDataset";
+import { useGaleriaDataset } from "../hooks/useGaleriaDataset";
+import {
   useListarTiposEtiquetaQuery,
   useObtenerResumenDatasetQuery,
-  useQuitarEtiquetaMutation,
 } from "../datasetApi";
-import { ALTO_CAMPO_FILTRO, ANCHO_CAMPO_FILTRO, ETIQUETAS_VISTA } from "../dataset.types";
-import type { CajaDeteccion, ImagenDatasetResumida, VeredictoDeteccion, VistaDataset } from "../dataset.types";
-
-const VISTAS: VistaDataset[] = ["todas", "con_patente", "vehiculo_sin_patente", "sin_vehiculo_con_patente", "sin_deteccion"];
-const TAMANO_PAGINA = 24;
-const UMBRAL_AUTOCARGA_PX = 400;
-
-const CLAVE_FILTROS_GUARDADOS = "dataset:filtros";
-
-interface FiltrosGuardados {
-  vista: VistaDataset;
-  planta: string;
-  fechaDesde: string;
-  fechaHasta: string;
-  etiquetaFiltro: string;
-}
-
-/** Persistencia simple en localStorage — sobrevive a F5. Si falla (modo privado, cuota), se ignora. */
-function leerFiltrosGuardados(): Partial<FiltrosGuardados> {
-  try {
-    const crudo = localStorage.getItem(CLAVE_FILTROS_GUARDADOS);
-    return crudo ? (JSON.parse(crudo) as Partial<FiltrosGuardados>) : {};
-  } catch {
-    return {};
-  }
-}
-
-function siguienteVeredicto(actual: VeredictoDeteccion | null): VeredictoDeteccion | null {
-  if (actual === null) return "correcta";
-  if (actual === "correcta") return "falso_positivo";
-  return null;
-}
+import { ALTO_CAMPO_FILTRO, CLASE_PATENTE, ETIQUETAS_VISTA } from "../dataset.types";
+import type { VistaDataset } from "../dataset.types";
 
 export function DatasetPage() {
-  const [filtrosIniciales] = useState(leerFiltrosGuardados);
-  const [vista, setVista] = useState<VistaDataset>(filtrosIniciales.vista ?? "todas");
-  const [planta, setPlanta] = useState(filtrosIniciales.planta ?? "");
-  const [fechaDesde, setFechaDesde] = useState(filtrosIniciales.fechaDesde ?? "");
-  const [fechaHasta, setFechaHasta] = useState(filtrosIniciales.fechaHasta ?? "");
-  const [etiquetaFiltro, setEtiquetaFiltro] = useState(filtrosIniciales.etiquetaFiltro ?? "");
-  const [cursor, setCursor] = useState<string | undefined>(undefined);
-  const [imagenes, setImagenes] = useState<ImagenDatasetResumida[]>([]);
-  const [indiceVisible, setIndiceVisible] = useState(0);
-
-  const refContenedor = useRef<HTMLDivElement>(null);
-  const refEncabezado = useRef<HTMLDivElement>(null);
-  const refGaleria = useRef<HTMLDivElement>(null);
+  const { methods, filtros, setVista, limpiarFiltros, hayFiltrosActivos } = useFiltrosDataset();
+  const { ref: refEncabezado, alto: altoEncabezadoFijo } = useAltoEncabezado<HTMLDivElement>();
 
   const { data: resumen, isLoading: cargandoResumen } = useObtenerResumenDatasetQuery({
-    planta: planta || undefined,
-    fechaDesde: fechaDesde || undefined,
-    fechaHasta: fechaHasta || undefined,
+    planta: filtros.planta || undefined,
+    fechaDesde: filtros.fechaDesde || undefined,
+    fechaHasta: filtros.fechaHasta || undefined,
   });
   const { data: tiposEtiqueta } = useListarTiposEtiquetaQuery();
 
-  const { data: pagina, isFetching: cargandoImagenes } = useListarImagenesDatasetQuery({
-    vista,
-    planta: planta || undefined,
-    fechaDesde: fechaDesde || undefined,
-    fechaHasta: fechaHasta || undefined,
-    etiqueta: etiquetaFiltro || undefined,
-    cursor,
-    limite: TAMANO_PAGINA,
+  const {
+    imagenes,
+    total,
+    indiceVisible,
+    indiceEnfocado,
+    setIndiceEnfocado,
+    cargandoImagenes,
+    refContenedor,
+    refGaleria,
+    alHacerScroll,
+    resetearGaleria,
+    onToggleEtiqueta,
+    onCicloVeredicto,
+  } = useGaleriaDataset(filtros, altoEncabezadoFijo);
+
+  useAtajosGaleria({
+    imagenes,
+    indiceEnfocado,
+    setIndiceEnfocado,
+    onToggleEtiqueta,
+    onCicloVeredicto,
   });
 
-  const [asignarEtiqueta] = useAsignarEtiquetaMutation();
-  const [quitarEtiqueta] = useQuitarEtiquetaMutation();
-  const [fijarVeredicto] = useFijarVeredictoMutation();
-
-  useEffect(() => {
-    if (!pagina) return;
-    setImagenes((previas) => {
-      const mapa = new Map(previas.map((imagen) => [imagen.id, imagen]));
-      pagina.imagenes.forEach((imagen) => mapa.set(imagen.id, imagen));
-      return Array.from(mapa.values());
-    });
-  }, [pagina]);
-
-  useEffect(() => {
-    try {
-      const filtros: FiltrosGuardados = { vista, planta, fechaDesde, fechaHasta, etiquetaFiltro };
-      localStorage.setItem(CLAVE_FILTROS_GUARDADOS, JSON.stringify(filtros));
-    } catch {
-      // No crítico — si falla, simplemente no persiste entre recargas.
-    }
-  }, [vista, planta, fechaDesde, fechaHasta, etiquetaFiltro]);
-
-  const resetearYAplicar = (aplicar: () => void) => {
-    aplicar();
-    setCursor(undefined);
-    setImagenes([]);
-    setIndiceVisible(0);
-    refContenedor.current?.scrollTo({ top: 0 });
-  };
-
-  const total = pagina?.total ?? 0;
-  const hayMas = pagina?.siguienteCursor != null;
-
-  const alHacerScroll = (evento: React.UIEvent<HTMLDivElement>) => {
-    const el = evento.currentTarget;
-    const cercaDelFinal = el.scrollHeight - el.scrollTop - el.clientHeight < UMBRAL_AUTOCARGA_PX;
-    if (cercaDelFinal && hayMas && !cargandoImagenes && pagina?.siguienteCursor) {
-      setCursor(pagina.siguienteCursor);
-    }
-  };
-
-  useEffect(() => {
-    const galeria = refGaleria.current;
-    const contenedor = refContenedor.current;
-    if (!galeria || !contenedor || imagenes.length === 0) return;
-
-    const alturaEncabezado = refEncabezado.current?.offsetHeight ?? 0;
-    const observador = new IntersectionObserver(
-      (entradas) => {
-        const indicesVisibles = entradas
-          .filter((entrada) => entrada.isIntersecting)
-          .map((entrada) => Number((entrada.target as HTMLElement).dataset.indice))
-          .filter((indice) => !Number.isNaN(indice));
-        if (indicesVisibles.length > 0) setIndiceVisible(Math.min(...indicesVisibles) + 1);
-      },
-      { root: contenedor, rootMargin: `-${alturaEncabezado}px 0px -75% 0px`, threshold: 0 },
-    );
-
-    const celdas = galeria.querySelectorAll("[data-indice]");
-    celdas.forEach((celda) => observador.observe(celda));
-    return () => observador.disconnect();
-  }, [imagenes]);
-
-  const onToggleEtiqueta = (imagen: ImagenDatasetResumida, clave: string) => {
-    const yaAsignada = imagen.etiquetas.some((etiqueta) => etiqueta.clave === clave);
-    if (yaAsignada) {
-      void quitarEtiqueta({ imagenId: imagen.id, clave });
-    } else {
-      void asignarEtiqueta({ imagenId: imagen.id, clave });
-    }
-  };
-
-  const onCicloVeredicto = (imagen: ImagenDatasetResumida, caja: CajaDeteccion) => {
-    void fijarVeredicto({ deteccionId: caja.id, imagenId: imagen.id, veredicto: siguienteVeredicto(caja.veredicto) });
-  };
-
   const plantas = useMemo(
-    () => (resumen?.porPlanta ?? []).filter((fila): fila is { planta: string; total: number } => fila.planta !== null),
+    () =>
+      (resumen?.porPlanta ?? []).filter(
+        (fila): fila is { planta: string; total: number } => fila.planta !== null,
+      ),
     [resumen],
   );
 
   return (
     <Stack sx={{ height: "100%" }}>
-      <AppBar position="static" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: "divider" }}>
-        <Toolbar variant="dense">
-          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-            Dataset
-          </Typography>
-        </Toolbar>
-      </AppBar>
-
-      <Box ref={refContenedor} onScroll={alHacerScroll} sx={{ overflow: "auto", flex: 1 }}>
-        <Box
-          ref={refEncabezado}
-          sx={{
-            position: "sticky",
-            top: 0,
-            zIndex: 2,
-            bgcolor: "background.paper",
-            borderBottom: 1,
-            borderColor: "divider",
-            px: 2.5,
-            pt: 2.5,
-            pb: 0,
-          }}
-        >
-          {cargandoResumen && <CircularProgress size={24} />}
-          {resumen && <ResumenDatasetCards resumen={resumen} />}
-
-          <Stack direction="row" spacing={1.5} sx={{ mt: 1.5, flexWrap: "wrap", alignItems: "center" }}>
-            <TextField
-              select
-              size="small"
-              label="Planta"
-              value={planta}
-              onChange={(evento) =>
-                resetearYAplicar(() => {
-                  setPlanta(evento.target.value);
-                  setFechaDesde("");
-                  setFechaHasta("");
-                })
-              }
-              sx={{ width: ANCHO_CAMPO_FILTRO, "& .MuiInputBase-root": { height: ALTO_CAMPO_FILTRO } }}
-            >
-              <MenuItem value="">Todas</MenuItem>
-              {plantas.map((fila) => (
-                <MenuItem key={fila.planta} value={fila.planta}>
-                  {fila.planta} ({fila.total.toLocaleString("es-CL")})
-                </MenuItem>
-              ))}
-            </TextField>
-            <SelectorRangoFechas
-              planta={planta}
-              fechaDesde={fechaDesde}
-              fechaHasta={fechaHasta}
-              onCambiar={(desde, hasta) =>
-                resetearYAplicar(() => {
-                  setFechaDesde(desde);
-                  setFechaHasta(hasta);
-                })
-              }
-            />
-            <TextField
-              select
-              size="small"
-              label="Etiqueta"
-              value={etiquetaFiltro}
-              onChange={(evento) => resetearYAplicar(() => setEtiquetaFiltro(evento.target.value))}
-              sx={{ width: ANCHO_CAMPO_FILTRO, "& .MuiInputBase-root": { height: ALTO_CAMPO_FILTRO } }}
-            >
-              <MenuItem value="">Cualquiera</MenuItem>
-              {(tiposEtiqueta ?? []).map((tipo) => (
-                <MenuItem key={tipo.clave} value={tipo.clave}>
-                  {tipo.nombre}
-                </MenuItem>
-              ))}
-            </TextField>
-            <PanelProcesamiento planta={planta} fechaDesde={fechaDesde} fechaHasta={fechaHasta} />
-          </Stack>
-
-          <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 1.5 }}>
-            Viendo imagen {indiceVisible || Math.min(1, imagenes.length)} de {total}
-          </Typography>
-          <Tabs
-            value={vista}
-            onChange={(_evento, valor: VistaDataset) => resetearYAplicar(() => setVista(valor))}
-            variant="scrollable"
-            scrollButtons="auto"
-            sx={{ mt: 0.5 }}
+      <Box
+        ref={refContenedor}
+        onScroll={alHacerScroll}
+        sx={{ overflow: "auto", flex: 1 }}
+      >
+        <Stack spacing={2.5} sx={{ p: 2.5 }}>
+          <Box
+            ref={refEncabezado}
+            sx={{
+              position: "sticky",
+              top: 0,
+              zIndex: 3,
+              bgcolor: "background.default",
+            }}
           >
-            {VISTAS.map((valor) => (
-              <Tab key={valor} value={valor} label={`${ETIQUETAS_VISTA[valor]} (${resumen?.porVista[valor] ?? 0})`} />
-            ))}
-          </Tabs>
-        </Box>
+            <UkoSectionCard
+              title="Resumen del dataset"
+              subtitle="Métricas generales, filtros y estado del procesamiento."
+              contentSx={{ p: 2 }}
+              collapsible
+            >
+              {cargandoResumen && <CircularProgress size={24} />}
+              {resumen && <ResumenDatasetCards resumen={resumen} />}
 
-        <Box ref={refGaleria} sx={{ p: 2.5 }}>
-          <GaleriaImagenes
-            imagenes={imagenes}
-            tiposEtiqueta={tiposEtiqueta ?? []}
-            onCicloVeredicto={onCicloVeredicto}
-            onToggleEtiqueta={onToggleEtiqueta}
-          />
-          <Stack sx={{ mt: 2.5, alignItems: "center" }}>{cargandoImagenes && <CircularProgress size={20} />}</Stack>
-        </Box>
+              <FormProvider methods={methods}>
+                <UkoFilterPanel
+                  title="Filtros del dataset"
+                  subtitle="Acota las imágenes y ejecuta el procesamiento sobre el rango seleccionado."
+                  minColumnWidth={165}
+                  embedded
+                  actions={
+                    <Button
+                      size="small"
+                      startIcon={<ClearOutlined />}
+                      disabled={!hayFiltrosActivos}
+                      onClick={limpiarFiltros}
+                    >
+                      Limpiar filtros
+                    </Button>
+                  }
+                >
+                  <RHFAutocomplete<FiltrosDatasetForm, OpcionFiltro>
+                    name="planta"
+                    label="Planta"
+                    options={plantas.map((fila) => ({
+                      code: fila.planta,
+                      name: `${fila.planta} (${fila.total.toLocaleString("es-CL")})`,
+                    }))}
+                    sx={{
+                      width: "100%",
+                      "& .MuiInputBase-root": { height: ALTO_CAMPO_FILTRO },
+                    }}
+                  />
+                  <SelectorRangoFechas
+                    planta={filtros.planta}
+                    fechaDesde={filtros.fechaDesde}
+                    fechaHasta={filtros.fechaHasta}
+                    onCambiar={(desde, hasta) => {
+                      methods.setValue("fechaDesde", desde);
+                      methods.setValue("fechaHasta", hasta);
+                    }}
+                  />
+                  <RHFAutocomplete<FiltrosDatasetForm, OpcionFiltro>
+                    name="etiquetaFiltro"
+                    label="Etiqueta"
+                    options={(tiposEtiqueta ?? []).map((tipo) => ({
+                      code: tipo.clave,
+                      name: tipo.nombre,
+                    }))}
+                    sx={{
+                      width: "100%",
+                      "& .MuiInputBase-root": { height: ALTO_CAMPO_FILTRO },
+                    }}
+                  />
+                  <RHFTextField<FiltrosDatasetForm>
+                    name="confianzaMinPct"
+                    type="number"
+                    size="small"
+                    label="Confianza mín. %"
+                    slotProps={{ htmlInput: { min: 0, max: 100 } }}
+                    sx={{
+                      width: "100%",
+                      "& .MuiInputBase-root": { height: ALTO_CAMPO_FILTRO },
+                    }}
+                  />
+                  <RHFTextField<FiltrosDatasetForm>
+                    name="confianzaMaxPct"
+                    type="number"
+                    size="small"
+                    label="máx. % (opcional)"
+                    slotProps={{ htmlInput: { min: 0, max: 100 } }}
+                    sx={{
+                      width: "100%",
+                      "& .MuiInputBase-root": { height: ALTO_CAMPO_FILTRO },
+                    }}
+                  />
+                  <PanelProcesamiento
+                    planta={filtros.planta}
+                    fechaDesde={filtros.fechaDesde}
+                    fechaHasta={filtros.fechaHasta}
+                  />
+                  <Box
+                    sx={{
+                      gridColumn: "1 / -1",
+                      display: "grid",
+                      gridTemplateColumns: {
+                        xs: "minmax(0, 1fr)",
+                        lg: "repeat(auto-fit, minmax(320px, 1fr))",
+                      },
+                      gap: 1.5,
+                      alignItems: "stretch",
+                    }}
+                  >
+                    {filtros.confianzaMin !== undefined && (
+                      <PanelAceptarPorConfianza
+                        clase={CLASE_PATENTE}
+                        planta={filtros.planta}
+                        fechaDesde={filtros.fechaDesde}
+                        fechaHasta={filtros.fechaHasta}
+                        confianzaMin={filtros.confianzaMin}
+                        confianzaMax={filtros.confianzaMax ?? null}
+                        tiposEtiqueta={tiposEtiqueta ?? []}
+                        onAplicado={resetearGaleria}
+                      />
+                    )}
+                    <PanelDescartarPorForma
+                      planta={filtros.planta}
+                      fechaDesde={filtros.fechaDesde}
+                      fechaHasta={filtros.fechaHasta}
+                      confianzaMax={filtros.confianzaMin}
+                      tiposEtiqueta={tiposEtiqueta ?? []}
+                      onAplicado={resetearGaleria}
+                    />
+                    <PanelDescartarPorTamanoRelativo
+                      planta={filtros.planta}
+                      fechaDesde={filtros.fechaDesde}
+                      fechaHasta={filtros.fechaHasta}
+                      tiposEtiqueta={tiposEtiqueta ?? []}
+                      onAplicado={resetearGaleria}
+                    />
+                  </Box>
+                </UkoFilterPanel>
+              </FormProvider>
+            </UkoSectionCard>
+          </Box>
+
+          <UkoSectionCard
+            actions={
+              <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+                <Typography variant="caption" color="text.secondary">
+                  Viendo imagen {indiceVisible || Math.min(1, imagenes.length)} de {total.toLocaleString("es-CL")}
+                </Typography>
+                <BotonAceptarTodas
+                  vista={filtros.vista}
+                  planta={filtros.planta}
+                  fechaDesde={filtros.fechaDesde}
+                  fechaHasta={filtros.fechaHasta}
+                  etiqueta={filtros.etiquetaFiltro}
+                  onAplicado={resetearGaleria}
+                />
+              </Stack>
+            }
+            navigation={
+              <UkoTabs<VistaDataset>
+                value={filtros.vista}
+                onChange={setVista}
+                items={VISTAS.map((valor) => ({
+                  value: valor,
+                  label: ETIQUETAS_VISTA[valor],
+                  count: resumen?.porVista[valor] ?? 0,
+                  tone:
+                    valor === "pendiente"
+                      ? "warning"
+                      : valor === "aceptada"
+                        ? "success"
+                        : valor === "descartada"
+                          ? "error"
+                          : valor === "todas"
+                            ? "neutral"
+                            : "info",
+                  groupStart: valor === "vehiculo_con_patente" || valor === "pendiente",
+                }))}
+                idPrefix="dataset-vista"
+              />
+            }
+            contentSx={{ p: 1.5 }}
+            headerSticky
+            headerTop={altoEncabezadoFijo}
+          >
+            <Box ref={refGaleria}>
+              <GaleriaImagenes
+                imagenes={imagenes}
+                tiposEtiqueta={tiposEtiqueta ?? []}
+                indiceEnfocado={indiceEnfocado}
+                onEnfocar={setIndiceEnfocado}
+                onCicloVeredicto={onCicloVeredicto}
+                onToggleEtiqueta={onToggleEtiqueta}
+                filtroConfianza={
+                  filtros.confianzaMin !== undefined
+                    ? { clase: CLASE_PATENTE, min: filtros.confianzaMin, max: filtros.confianzaMax }
+                    : undefined
+                }
+              />
+              <Stack sx={{ mt: 2.5, alignItems: "center" }}>
+                {cargandoImagenes && <CircularProgress size={20} />}
+              </Stack>
+            </Box>
+          </UkoSectionCard>
+        </Stack>
       </Box>
     </Stack>
   );

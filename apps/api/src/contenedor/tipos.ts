@@ -19,6 +19,7 @@ export const TIPOS = {
   ServicioEjecuciones: Symbol.for("ServicioEjecuciones"),
   ServicioCandidatos: Symbol.for("ServicioCandidatos"),
   ServicioEntrenamientos: Symbol.for("ServicioEntrenamientos"),
+  ServicioExportadorDataset: Symbol.for("ServicioExportadorDataset"),
   ServicioDataset: Symbol.for("ServicioDataset"),
   ServicioProcesamientoDataset: Symbol.for("ServicioProcesamientoDataset"),
 

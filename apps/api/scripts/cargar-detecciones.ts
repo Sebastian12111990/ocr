@@ -77,6 +77,9 @@ async function principal(): Promise<void> {
   if (resultado.sinImagen > 0) {
     console.warn(`${resultado.sinImagen} filas del CSV no tienen imagen indexada (correr npm run indexar:dataset primero).`);
   }
+  if (resultado.protegidas > 0) {
+    console.warn(`${resultado.protegidas} imágenes con veredicto humano del modelo "${modelo}" se dejaron intactas, no se reemplazaron.`);
+  }
 
   await fuenteDatos.destroy();
   console.log(`Listo: ${resultado.cargadas} detecciones del modelo "${modelo}" en deteccion_imagen`);

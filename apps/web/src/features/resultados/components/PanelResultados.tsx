@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, Button, Chip, Stack, Typography } from "@mui/material";
+import { Button, Chip, Stack, Typography } from "@mui/material";
 
 import type { Candidato } from "@/features/candidatos/candidatos.types";
 import type { Pipeline } from "@/features/editor/pipeline.types";
+import { UkoAlert } from "@/shared/componentes/feedback";
 import { blobABase64 } from "@/shared/utils/base64";
 import { extraerMensajeError } from "@/shared/utils/errores";
 import { useEjecutarOcrMutation, useGuardarEjecucionMutation } from "../resultadosApi";
@@ -175,7 +176,7 @@ export function PanelResultados({
         {ejecutandoOcr ? "Ejecutando OCR…" : "Ejecutar OCR"}
       </Button>
 
-      {errorOcr && <Alert severity="error">{extraerMensajeError(errorOcr)}</Alert>}
+      {errorOcr && <UkoAlert severity="error">{extraerMensajeError(errorOcr)}</UkoAlert>}
 
       {resultado && (
         <Stack spacing={1}>
@@ -203,12 +204,12 @@ export function PanelResultados({
       )}
 
       {confirmacionVisible && (
-        <Alert severity="success">
+        <UkoAlert severity="success">
           Ejecución guardada: {confirmacionVisible.candidatosGuardados} candidato(s), mejor coincidencia{" "}
           {confirmacionVisible.mejorCoincidencia.toFixed(0)}%.
-        </Alert>
+        </UkoAlert>
       )}
-      {falloVisible && <Alert severity="error">{falloVisible}</Alert>}
+      {falloVisible && <UkoAlert severity="error">{falloVisible}</UkoAlert>}
 
       <Button
         color="success"

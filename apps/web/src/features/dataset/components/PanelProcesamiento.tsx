@@ -1,20 +1,32 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
-import { Alert, Box, Button, LinearProgress, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
+import { useForm, useWatch } from "react-hook-form";
+import { Box, Button, LinearProgress, Paper, Stack, Typography } from "@mui/material";
 
 import type { AppDispatch } from "@/app/store";
+import { UkoAlert } from "@/shared/componentes/feedback";
+import { FormProvider, RHFAutocomplete, type OpcionAutocomplete } from "@/shared/componentes/rhf";
 import {
   datasetApi,
   useIniciarProcesamientoMutation,
   useListarModelosDatasetQuery,
   useObtenerEstadoProcesamientoQuery,
 } from "../datasetApi";
-import { ALTO_CAMPO_FILTRO, ANCHO_CAMPO_FILTRO } from "../dataset.types";
+import { ALTO_CAMPO_FILTRO } from "../dataset.types";
 
 interface Props {
   planta: string;
   fechaDesde: string;
   fechaHasta: string;
+}
+
+interface OpcionModelo extends OpcionAutocomplete {
+  code: string;
+  name: string;
+}
+
+interface FormularioProcesamiento {
+  modelo: OpcionModelo | null;
 }
 
 function mismoMes(fechaDesde: string, fechaHasta: string): boolean {
@@ -26,10 +38,20 @@ export function PanelProcesamiento({ planta, fechaDesde, fechaHasta }: Props) {
   const { data: estadoProceso } = useObtenerEstadoProcesamientoQuery();
   const { data: modelos } = useListarModelosDatasetQuery();
   const [iniciarProcesamiento, { isLoading, error }] = useIniciarProcesamientoMutation();
-  const [modelo, setModelo] = useState("");
+
+  const methods = useForm<FormularioProcesamiento>({ defaultValues: { modelo: null } });
+  const modeloOpcion = useWatch({ control: methods.control, name: "modelo" });
+  const modeloElegido = modeloOpcion?.code ?? "";
 
   const activo = estadoProceso?.estado === "corriendo" || estadoProceso?.estado === "cargando";
-  const modeloElegido = modelo || modelos?.[0]?.archivo || "";
+
+  // Preselecciona el primer modelo apenas carga la lista, solo si el usuario no eligió otro antes.
+  const primerModeloAplicado = useRef(false);
+  useEffect(() => {
+    if (primerModeloAplicado.current || !modelos || modelos.length === 0) return;
+    methods.setValue("modelo", { code: modelos[0].archivo, name: modelos[0].etiqueta });
+    primerModeloAplicado.current = true;
+  }, [modelos]);
 
   useEffect(() => {
     if (estadoProceso?.estado === "listo") {
@@ -40,8 +62,19 @@ export function PanelProcesamiento({ planta, fechaDesde, fechaHasta }: Props) {
   const rangoValido = fechaDesde !== "" && fechaHasta !== "" && fechaDesde <= fechaHasta && mismoMes(fechaDesde, fechaHasta);
   const puedeProcesar = planta !== "" && rangoValido && modeloElegido !== "" && !activo;
 
-  const alProcesar = () => {
-    void iniciarProcesamiento({ planta, fechaDesde, fechaHasta, modelo: modeloElegido }).unwrap();
+  // El POST responde con el estado "corriendo" ya calculado (ver iniciarProcesamiento en el
+  // backend) — escribirlo directo en la caché de `obtenerEstadoProcesamiento` deshabilita el botón
+  // al toque, sin esperar el viaje de ida y vuelta del WebSocket. Si no se hace esto, hay una
+  // ventana (mientras no llega el próximo mensaje del socket) donde el botón sigue habilitado y
+  // parece que el click no hizo nada — tentando a hacer doble click y chocar con "ya hay un
+  // procesamiento en curso" aunque el primero sí haya arrancado.
+  const alProcesar = async () => {
+    try {
+      const estado = await iniciarProcesamiento({ planta, fechaDesde, fechaHasta, modelo: modeloElegido }).unwrap();
+      dispatch(datasetApi.util.upsertQueryData("obtenerEstadoProcesamiento", undefined, estado));
+    } catch {
+      // El hook de la mutation ya guarda el error y se muestra abajo — nada más que hacer acá.
+    }
   };
 
   const porcentaje =
@@ -50,22 +83,14 @@ export function PanelProcesamiento({ planta, fechaDesde, fechaHasta }: Props) {
   const mostrarEstado = Boolean(error) || activo || estadoProceso?.estado === "error" || estadoProceso?.estado === "listo";
 
   return (
-    <>
-      <TextField
-        select
-        size="small"
+    <FormProvider methods={methods}>
+      <RHFAutocomplete<FormularioProcesamiento, OpcionModelo>
+        name="modelo"
         label="Modelo"
-        value={modeloElegido}
-        onChange={(evento) => setModelo(evento.target.value)}
         disabled={activo}
-        sx={{ width: ANCHO_CAMPO_FILTRO, "& .MuiInputBase-root": { height: ALTO_CAMPO_FILTRO } }}
-      >
-        {(modelos ?? []).map((m) => (
-          <MenuItem key={m.archivo} value={m.archivo}>
-            {m.etiqueta}
-          </MenuItem>
-        ))}
-      </TextField>
+        options={(modelos ?? []).map((m) => ({ code: m.archivo, name: m.etiqueta }))}
+        sx={{ width: "100%", "& .MuiInputBase-root": { height: ALTO_CAMPO_FILTRO } }}
+      />
       <Button
         variant="contained"
         size="small"
@@ -78,19 +103,19 @@ export function PanelProcesamiento({ planta, fechaDesde, fechaHasta }: Props) {
               ? "Elegí un rango de fechas dentro de un mismo mes"
               : "Corre YOLO sobre la planta y el rango de fechas elegidos"
         }
-        sx={{ width: ANCHO_CAMPO_FILTRO, height: ALTO_CAMPO_FILTRO }}
+        sx={{ width: "100%", height: ALTO_CAMPO_FILTRO }}
       >
         Procesar
       </Button>
 
       {mostrarEstado && (
-        <Box sx={{ flexBasis: "100%" }}>
+        <Box sx={{ gridColumn: "1 / -1" }}>
           {error && (
-            <Alert severity="error" sx={{ mt: 1 }}>
+            <UkoAlert severity="error" title="No se pudo iniciar" sx={{ mt: 1 }}>
               {"data" in error && typeof error.data === "object" && error.data && "error" in error.data
                 ? String((error.data as { error: unknown }).error)
                 : "No se pudo iniciar el procesamiento"}
-            </Alert>
+            </UkoAlert>
           )}
 
           {activo && estadoProceso && (
@@ -120,18 +145,21 @@ export function PanelProcesamiento({ planta, fechaDesde, fechaHasta }: Props) {
             </Paper>
           )}
 
-          {estadoProceso?.estado === "error" && (
-            <Alert severity="error" sx={{ mt: 1 }}>
+          {/* Si el click actual falló (p.ej. "ya hay un procesamiento en curso"), no mezclar ese
+              error con el resultado LISTO de una corrida anterior — confunde cuál es cuál. */}
+          {!error && estadoProceso?.estado === "error" && (
+            <UkoAlert severity="error" title="Procesamiento interrumpido" sx={{ mt: 1 }}>
               {estadoProceso.mensaje}
-            </Alert>
+            </UkoAlert>
           )}
-          {estadoProceso?.estado === "listo" && !activo && (
-            <Alert severity="success" sx={{ mt: 1 }}>
+          {!error && estadoProceso?.estado === "listo" && !activo && (
+            <UkoAlert severity="success" title="Procesamiento completado" sx={{ mt: 1 }}>
               Listo: {estadoProceso.detecciones?.toLocaleString("es-CL")} detecciones cargadas.
-            </Alert>
+              {estadoProceso.mensaje && ` ${estadoProceso.mensaje}`}
+            </UkoAlert>
           )}
         </Box>
       )}
-    </>
+    </FormProvider>
   );
 }

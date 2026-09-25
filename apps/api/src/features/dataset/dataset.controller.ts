@@ -6,7 +6,16 @@ import { ServicioDataset } from "./dataset.service.js";
 import { ServicioProcesamientoDataset } from "./procesamiento-dataset.service.js";
 import { TIPOS } from "../../contenedor/tipos.js";
 
-const vistaValida = z.enum(["todas", "con_patente", "vehiculo_sin_patente", "sin_vehiculo_con_patente", "sin_deteccion"]);
+const vistaValida = z.enum([
+  "todas",
+  "vehiculo_con_patente",
+  "solo_patente",
+  "vehiculo_sin_patente",
+  "sin_deteccion",
+  "pendiente",
+  "aceptada",
+  "descartada",
+]);
 const veredictoValido = z.enum(["correcta", "falso_positivo"]);
 const fechaValida = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "fecha debe ser YYYY-MM-DD");
 
@@ -25,8 +34,55 @@ const esquemaListarImagenes = z.object({
   fechaHasta: fechaValida.optional(),
   etiqueta: z.string().min(1).optional(),
   sinEtiqueta: z.string().min(1).optional(),
+  confianzaMin: z.coerce.number().min(0).max(1).optional(),
+  confianzaMax: z.coerce.number().min(0).max(1).optional(),
+  confianzaClase: z.string().min(1).optional(),
   cursor: z.string().min(1).optional(),
   limite: z.coerce.number().int().min(1).max(100).default(24),
+});
+
+const esquemaAceptarPorConfianza = z.object({
+  clase: z.string().min(1).default("patente"),
+  confianzaMin: z.coerce.number().min(0).max(1),
+  confianzaMax: z.coerce.number().min(0).max(1).optional(),
+  planta: z.string().min(1).optional(),
+  fechaDesde: fechaValida.optional(),
+  fechaHasta: fechaValida.optional(),
+});
+
+const esquemaAceptarTodas = z.object({
+  vista: vistaValida.optional(),
+  planta: z.string().min(1).optional(),
+  fechaDesde: fechaValida.optional(),
+  fechaHasta: fechaValida.optional(),
+  etiqueta: z.string().min(1).optional(),
+});
+
+const esquemaDescartarPorForma = z.object({
+  clase: z.string().min(1).default("patente"),
+  relacionMin: z.coerce.number().min(0),
+  relacionMax: z.coerce.number().min(0),
+  confianzaMax: z.coerce.number().min(0).max(1).optional(),
+  planta: z.string().min(1).optional(),
+  fechaDesde: fechaValida.optional(),
+  fechaHasta: fechaValida.optional(),
+});
+
+const esquemaDescartarPorTamanoRelativo = z.object({
+  clase: z.string().min(1).default("patente"),
+  relacionMaxima: z.coerce.number().min(0).max(1),
+  anchoMaximoPx: z.coerce.number().min(1).optional(),
+  altoMaximoPx: z.coerce.number().min(1).optional(),
+  planta: z.string().min(1).optional(),
+  fechaDesde: fechaValida.optional(),
+  fechaHasta: fechaValida.optional(),
+});
+
+const esquemaEstadisticasTamano = z.object({
+  clase: z.string().min(1).default("patente"),
+  planta: z.string().min(1).optional(),
+  fechaDesde: fechaValida.optional(),
+  fechaHasta: fechaValida.optional(),
 });
 
 const esquemaParametroId = z.object({ id: z.string().uuid() });
@@ -111,5 +167,70 @@ export class ControladorDataset {
     const { veredicto } = esquemaFijarVeredicto.parse(req.body);
     await this.servicio.fijarVeredicto(id, veredicto);
     res.status(204).send();
+  };
+
+  previsualizarAceptarPorConfianza = async (req: Request, res: Response): Promise<void> => {
+    const filtros = esquemaAceptarPorConfianza.parse(req.query);
+    res.json(await this.servicio.previsualizarAceptarPorConfianza(filtros));
+  };
+
+  aceptarPorConfianza = async (req: Request, res: Response): Promise<void> => {
+    const filtros = esquemaAceptarPorConfianza.parse(req.body);
+    res.json(await this.servicio.aceptarPorConfianza(filtros));
+  };
+
+  previsualizarAceptarTodas = async (req: Request, res: Response): Promise<void> => {
+    const filtros = esquemaAceptarTodas.parse(req.query);
+    res.json(await this.servicio.previsualizarAceptarTodas(filtros));
+  };
+
+  aceptarTodas = async (req: Request, res: Response): Promise<void> => {
+    const filtros = esquemaAceptarTodas.parse(req.body);
+    res.json(await this.servicio.aceptarTodas(filtros));
+  };
+
+  previsualizarDescartarPorForma = async (req: Request, res: Response): Promise<void> => {
+    const filtros = esquemaDescartarPorForma.parse(req.query);
+    res.json(await this.servicio.previsualizarDescartarPorForma(filtros));
+  };
+
+  listarImagenesDescartarPorForma = async (req: Request, res: Response): Promise<void> => {
+    const filtros = esquemaDescartarPorForma.parse(req.query);
+    res.json(await this.servicio.listarImagenesDescartarPorForma(filtros));
+  };
+
+  descartarPorForma = async (req: Request, res: Response): Promise<void> => {
+    const filtros = esquemaDescartarPorForma.parse(req.body);
+    res.json(await this.servicio.descartarPorForma(filtros));
+  };
+
+  previsualizarDescartarPorTamanoRelativo = async (req: Request, res: Response): Promise<void> => {
+    const filtros = esquemaDescartarPorTamanoRelativo.parse(req.query);
+    res.json(await this.servicio.previsualizarDescartarPorTamanoRelativo(filtros));
+  };
+
+  listarImagenesDescartarPorTamanoRelativo = async (req: Request, res: Response): Promise<void> => {
+    const filtros = esquemaDescartarPorTamanoRelativo.parse(req.query);
+    res.json(await this.servicio.listarImagenesDescartarPorTamanoRelativo(filtros));
+  };
+
+  descartarPorTamanoRelativo = async (req: Request, res: Response): Promise<void> => {
+    const filtros = esquemaDescartarPorTamanoRelativo.parse(req.body);
+    res.json(await this.servicio.descartarPorTamanoRelativo(filtros));
+  };
+
+  obtenerEstadisticasTamano = async (req: Request, res: Response): Promise<void> => {
+    const filtros = esquemaEstadisticasTamano.parse(req.query);
+    res.json(await this.servicio.obtenerEstadisticasTamano(filtros));
+  };
+
+  previsualizarNoIncluidasPorTamanoRelativo = async (req: Request, res: Response): Promise<void> => {
+    const filtros = esquemaDescartarPorTamanoRelativo.parse(req.query);
+    res.json(await this.servicio.previsualizarNoIncluidasPorTamanoRelativo(filtros));
+  };
+
+  listarImagenesNoIncluidasPorTamanoRelativo = async (req: Request, res: Response): Promise<void> => {
+    const filtros = esquemaDescartarPorTamanoRelativo.parse(req.query);
+    res.json(await this.servicio.listarImagenesNoIncluidasPorTamanoRelativo(filtros));
   };
 }

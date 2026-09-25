@@ -27,6 +27,7 @@ services:
     volumes:
       - ./services/yolo:/workspace
       - '${YOLO_IMAGENES_DIR:-D:\img_dataset}:/data/patentes:ro'
+      - '${YOLO_EXPORTS_DIR:-D:\ocr_entrenamientos}:/workspace/datasets'
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
     shm_size: '2gb'

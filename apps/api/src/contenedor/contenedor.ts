@@ -36,6 +36,7 @@ import { ControladorCandidatos } from "../features/candidatos/candidatos.control
 
 import { ServicioEntrenamientos } from "../features/entrenamientos/entrenamientos.service.js";
 import { ControladorEntrenamientos } from "../features/entrenamientos/entrenamientos.controller.js";
+import { ServicioExportadorDataset } from "../features/entrenamientos/exportador-dataset.service.js";
 
 import { ServicioDataset } from "../features/dataset/dataset.service.js";
 import { ServicioProcesamientoDataset } from "../features/dataset/procesamiento-dataset.service.js";
@@ -82,6 +83,7 @@ export function crearContenedor(fuenteDatos: DataSource): Container {
 
   contenedor.bind(TIPOS.ServicioEntrenamientos).to(ServicioEntrenamientos).inSingletonScope();
   contenedor.bind(TIPOS.ControladorEntrenamientos).to(ControladorEntrenamientos).inSingletonScope();
+  contenedor.bind(TIPOS.ServicioExportadorDataset).to(ServicioExportadorDataset).inSingletonScope();
 
   contenedor.bind(TIPOS.ServicioDataset).to(ServicioDataset).inSingletonScope();
   contenedor.bind(TIPOS.ServicioProcesamientoDataset).to(ServicioProcesamientoDataset).inSingletonScope();

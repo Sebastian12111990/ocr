@@ -9,6 +9,8 @@ const esquemaEntorno = z.object({
   POSTGRES_DB: z.string(),
   URL_SERVICIO_CV: z.string().url().default("http://localhost:8000"),
   RUTA_IMAGENES_DATASET: z.string().default("D:\\img_dataset"),
+  YOLO_DEVICE: z.string().default("0"),
+  RUTA_EXPORTS_YOLO: z.string().default("D:\\ocr_entrenamientos"),
 });
 
 export const entorno = esquemaEntorno.parse(process.env);

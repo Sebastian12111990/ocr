@@ -16,7 +16,8 @@
     "db:seed": "dotenv -e .env.development -- tsx src/infraestructura/seed.ts",
     "seed:yolo": "dotenv -e .env.development -- tsx scripts/cargar-historico-yolo.ts",
     "indexar:dataset": "dotenv -e .env.development -- tsx scripts/indexar-dataset.ts",
-    "cargar:detecciones": "dotenv -e .env.development -- tsx scripts/cargar-detecciones.ts"
+    "cargar:detecciones": "dotenv -e .env.development -- tsx scripts/cargar-detecciones.ts",
+    "exportar:entrenamiento": "dotenv -e .env.development -- tsx scripts/exportar-entrenamiento.ts"
   },
   "dependencies": {
     "cors": "^2.8.6",
