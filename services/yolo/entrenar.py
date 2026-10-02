@@ -19,6 +19,7 @@ def parsear_argumentos() -> argparse.Namespace:
     parser.add_argument("--epocas", type=int, default=60)
     parser.add_argument("--imgsz", type=int, default=640, help="640 = resolucion nativa de todo el dataset (ver CLAUDE.md)")
     parser.add_argument("--batch", type=int, default=16)
+    parser.add_argument("--workers", type=int, default=4, help="Procesos del dataloader (mosaic/augment corren en CPU)")
     parser.add_argument("--device", default="0", help='indice de GPU (ej. "0") o "cpu"')
     parser.add_argument(
         "--proyecto",
@@ -104,7 +105,7 @@ def main() -> None:
         close_mosaic=10,
         amp=True,
         plots=True,
-        workers=4,
+        workers=args.workers,
         exist_ok=True,
     )
 

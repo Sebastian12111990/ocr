@@ -58,6 +58,16 @@ const esquemaAceptarTodas = z.object({
   etiqueta: z.string().min(1).optional(),
 });
 
+const esquemaDescartarPendientes = z.object({
+  planta: z.string().min(1).optional(),
+  fechaDesde: fechaValida.optional(),
+  fechaHasta: fechaValida.optional(),
+  etiqueta: z.string().min(1).optional(),
+  confianzaMin: z.coerce.number().min(0).max(1).optional(),
+  confianzaMax: z.coerce.number().min(0).max(1).optional(),
+  confianzaClase: z.string().min(1).optional(),
+});
+
 const esquemaDescartarPorForma = z.object({
   clase: z.string().min(1).default("patente"),
   relacionMin: z.coerce.number().min(0),
@@ -187,6 +197,16 @@ export class ControladorDataset {
   aceptarTodas = async (req: Request, res: Response): Promise<void> => {
     const filtros = esquemaAceptarTodas.parse(req.body);
     res.json(await this.servicio.aceptarTodas(filtros));
+  };
+
+  previsualizarDescartarPendientes = async (req: Request, res: Response): Promise<void> => {
+    const filtros = esquemaDescartarPendientes.parse(req.query);
+    res.json(await this.servicio.previsualizarDescartarPendientes(filtros));
+  };
+
+  descartarPendientes = async (req: Request, res: Response): Promise<void> => {
+    const filtros = esquemaDescartarPendientes.parse(req.body);
+    res.json(await this.servicio.descartarPendientes(filtros));
   };
 
   previsualizarDescartarPorForma = async (req: Request, res: Response): Promise<void> => {

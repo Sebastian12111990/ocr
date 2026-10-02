@@ -138,15 +138,19 @@ export function SelectorRangoFechas({ planta, fechaDesde, fechaHasta, onCambiar 
 
               const info = mapaFechas.get(fecha);
               const tieneDatos = info !== undefined && info.total > 0;
-              const procesadaCompleta = info !== undefined && info.total > 0 && info.procesadas >= info.total;
-              const procesadaParcial = info !== undefined && info.procesadas > 0 && info.procesadas < info.total;
+              const revisadaCompleta = tieneDatos && info.pendientes === 0;
+              const procesada = info !== undefined && info.procesadas > 0;
               const enRango = fechaDesde !== "" && fecha >= fechaDesde && fecha <= fechaHasta;
               const dia = Number(fecha.slice(8, 10));
 
               return (
                 <Tooltip
                   key={fecha}
-                  title={tieneDatos ? `${info.total} imágenes${info.procesadas > 0 ? `, ${info.procesadas} procesadas` : ""}` : "Sin imágenes indexadas"}
+                  title={
+                    tieneDatos
+                      ? `${info.total} imágenes${info.procesadas > 0 ? `, ${info.procesadas} procesadas` : ""}, ${info.pendientes} pendientes`
+                      : "Sin imágenes indexadas"
+                  }
                 >
                   <span>
                     <Box
@@ -181,7 +185,7 @@ export function SelectorRangoFechas({ planta, fechaDesde, fechaHasta, onCambiar 
                             width: 4,
                             height: 4,
                             borderRadius: "50%",
-                            bgcolor: procesadaCompleta ? "success.main" : procesadaParcial ? "warning.main" : "text.disabled",
+                            bgcolor: revisadaCompleta ? "success.main" : procesada ? "warning.main" : "text.disabled",
                           }}
                         />
                       )}
@@ -195,11 +199,15 @@ export function SelectorRangoFechas({ planta, fechaDesde, fechaHasta, onCambiar 
           <Stack direction="row" spacing={1.5} sx={{ mt: 1.5, alignItems: "center" }}>
             <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
               <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "success.main" }} />
-              <Typography variant="caption" color="text.secondary">Procesado</Typography>
+              <Typography variant="caption" color="text.secondary">Sin pendientes</Typography>
             </Stack>
             <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
               <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "warning.main" }} />
-              <Typography variant="caption" color="text.secondary">Parcial</Typography>
+              <Typography variant="caption" color="text.secondary">Con pendientes</Typography>
+            </Stack>
+            <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
+              <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "text.disabled" }} />
+              <Typography variant="caption" color="text.secondary">Sin procesar</Typography>
             </Stack>
           </Stack>
         </Box>

@@ -6,6 +6,7 @@ import type {
   FechaDataset,
   FiltrosAceptarPorConfianza,
   FiltrosAceptarTodas,
+  FiltrosDescartarPendientes,
   FiltrosDescartarPorForma,
   FiltrosDescartarPorTamanoRelativo,
   FiltrosEstadisticasTamanoPatente,
@@ -15,10 +16,12 @@ import type {
   PaginaImagenesDataset,
   PrevisualizacionAceptarPorConfianza,
   PrevisualizacionAceptarTodas,
+  PrevisualizacionDescartarPendientes,
   PrevisualizacionDescartarPorForma,
   PrevisualizacionDescartarPorTamanoRelativo,
   ResultadoAceptarPorConfianza,
   ResultadoAceptarTodas,
+  ResultadoDescartarPendientes,
   ResultadoDescartarPorForma,
   ResultadoDescartarPorTamanoRelativo,
   ResumenDataset,
@@ -118,6 +121,13 @@ export const datasetApi = apiSlice.injectEndpoints({
     }),
     aceptarTodas: builder.mutation<ResultadoAceptarTodas, FiltrosAceptarTodas>({
       query: (filtros) => ({ url: "dataset/detecciones/aceptar-todas", method: "POST", body: filtros }),
+      invalidatesTags: ["ResumenDataset", { type: "ImagenDataset", id: "LISTA" }],
+    }),
+    previsualizarDescartarPendientes: builder.query<PrevisualizacionDescartarPendientes, FiltrosDescartarPendientes>({
+      query: (filtros) => ({ url: "dataset/imagenes/descartar-pendientes/previsualizar", params: filtros }),
+    }),
+    descartarPendientes: builder.mutation<ResultadoDescartarPendientes, FiltrosDescartarPendientes>({
+      query: (filtros) => ({ url: "dataset/imagenes/descartar-pendientes", method: "POST", body: filtros }),
       invalidatesTags: ["ResumenDataset", { type: "ImagenDataset", id: "LISTA" }],
     }),
     previsualizarDescartarPorForma: builder.query<PrevisualizacionDescartarPorForma, FiltrosDescartarPorForma>({
@@ -223,6 +233,8 @@ export const {
   useAceptarPorConfianzaMutation,
   useLazyPrevisualizarAceptarTodasQuery,
   useAceptarTodasMutation,
+  useLazyPrevisualizarDescartarPendientesQuery,
+  useDescartarPendientesMutation,
   useLazyPrevisualizarDescartarPorFormaQuery,
   useDescartarPorFormaMutation,
   useListarImagenesDescartarPorFormaQuery,

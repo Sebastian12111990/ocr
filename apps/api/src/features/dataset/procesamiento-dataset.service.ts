@@ -25,12 +25,17 @@ interface ConfigModelo {
 
 /** Catálogo de modelos que se pueden correr desde el botón "Procesar" — agregar uno acá alcanza. */
 const MODELOS_DISPONIBLES: ConfigModelo[] = [
- 
   { archivo: "license-plate-finetune-v1m.pt", etiqueta: "Patentes", clases: null, claseComo: CLASE_PATENTE },
   { archivo: "yolo11n.pt", etiqueta: "Vehículos (COCO)", clases: CLASES_VEHICULO, claseComo: null },
   {
     archivo: "patente-entrenamiento-real-01.pt",
     etiqueta: "Patentes (fine-tune propio, 2026-09-25)",
+    clases: null,
+    claseComo: CLASE_PATENTE,
+  },
+  {
+    archivo: "patente-v4-20260926.pt",
+    etiqueta: "Patentes v4 (fine-tune propio, 2026-09-26)",
     clases: null,
     claseComo: CLASE_PATENTE,
   },

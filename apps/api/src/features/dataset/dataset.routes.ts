@@ -18,6 +18,8 @@ export function crearRutasDataset(contenedor: Container): Router {
   router.get("/imagenes/:id/archivo", controlador.obtenerArchivo);
   router.put("/imagenes/:id/etiquetas/:clave", controlador.asignarEtiqueta);
   router.delete("/imagenes/:id/etiquetas/:clave", controlador.quitarEtiqueta);
+  router.get("/imagenes/descartar-pendientes/previsualizar", controlador.previsualizarDescartarPendientes);
+  router.post("/imagenes/descartar-pendientes", controlador.descartarPendientes);
   router.get("/detecciones/aceptar-por-confianza/previsualizar", controlador.previsualizarAceptarPorConfianza);
   router.post("/detecciones/aceptar-por-confianza", controlador.aceptarPorConfianza);
   router.get("/detecciones/aceptar-todas/previsualizar", controlador.previsualizarAceptarTodas);

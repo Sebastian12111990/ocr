@@ -9,9 +9,11 @@ import { ImagenDataset } from "./imagen-dataset.entidad.js";
 import { TipoEtiqueta } from "./tipo-etiqueta.entidad.js";
 import type {
   EstadisticasTamanoPatente,
+  FechaDataset,
   FilaDeteccionCsv,
   FiltrosAceptarPorConfianza,
   FiltrosAceptarTodas,
+  FiltrosDescartarPendientes,
   FiltrosDescartarPorForma,
   FiltrosDescartarPorTamanoRelativo,
   FiltrosEstadisticasTamanoPatente,
@@ -22,11 +24,13 @@ import type {
   PaginaImagenesDataset,
   PrevisualizacionAceptarPorConfianza,
   PrevisualizacionAceptarTodas,
+  PrevisualizacionDescartarPendientes,
   PrevisualizacionDescartarPorForma,
   PrevisualizacionDescartarPorTamanoRelativo,
   ResultadoAceptarPorConfianza,
   ResultadoAceptarTodas,
   ResultadoCargaDetecciones,
+  ResultadoDescartarPendientes,
   ResultadoDescartarPorForma,
   ResultadoDescartarPorTamanoRelativo,
   ResumenDataset,
@@ -43,6 +47,7 @@ export const CLASES_VEHICULO = ["car", "truck", "bus", "motorcycle"];
 export const CLASE_PATENTE = "patente";
 export const CLAVE_REVISADA = "revisada";
 export const CLAVE_DESCARTADA = "descartada";
+const NOTA_DESCARTE_EN_BLOQUE = "descartar_todas_pendientes";
 
 const VISTAS: VistaDataset[] = [
   "todas",
@@ -200,7 +205,7 @@ export class ServicioDataset {
 
   /** Un día por fila: cuántas imágenes hay y cuántas ya tienen alguna detección cargada (de
    * cualquier modelo) — para marcar en el calendario qué días tienen datos y cuáles ya se procesaron. */
-  async listarFechas(planta: string): Promise<{ fecha: string; total: number; procesadas: number }[]> {
+  async listarFechas(planta: string): Promise<FechaDataset[]> {
     const filas = await this.repositorioImagenes
       .createQueryBuilder("imagen")
       .select("to_char(imagen.fecha, 'YYYY-MM-DD')", "fecha")
@@ -209,13 +214,21 @@ export class ServicioDataset {
         "count(*) filter (where exists (select 1 from deteccion_imagen d where d.imagen_id = imagen.id))",
         "procesadas",
       )
+      // Mismo criterio que la vista "pendiente": ni aceptada ni descartada.
+      .addSelect(`count(*) filter (where not ${EXISTE_REVISADA} and not ${EXISTE_DESCARTADA})`, "pendientes")
       .where("imagen.planta = :planta", { planta })
       .andWhere("imagen.fecha is not null")
+      .setParameters({ claveRevisadaVista: CLAVE_REVISADA, claveDescartadaVista: CLAVE_DESCARTADA })
       .groupBy("imagen.fecha")
       .orderBy("imagen.fecha", "ASC")
-      .getRawMany<{ fecha: string; total: string; procesadas: string }>();
+      .getRawMany<{ fecha: string; total: string; procesadas: string; pendientes: string }>();
 
-    return filas.map((fila) => ({ fecha: fila.fecha, total: Number(fila.total), procesadas: Number(fila.procesadas) }));
+    return filas.map((fila) => ({
+      fecha: fila.fecha,
+      total: Number(fila.total),
+      procesadas: Number(fila.procesadas),
+      pendientes: Number(fila.pendientes),
+    }));
   }
 
   async listarTiposEtiqueta(): Promise<TipoEtiquetaResumen[]> {
@@ -805,6 +818,30 @@ export class ServicioDataset {
       { claveDescartadaAceptarTodas: CLAVE_DESCARTADA },
     );
     return qb.select("imagen.id", "id");
+  }
+
+  async previsualizarDescartarPendientes(
+    filtros: FiltrosDescartarPendientes,
+  ): Promise<PrevisualizacionDescartarPendientes> {
+    return { candidatos: await this.construirQueryBase({ ...filtros, vista: "pendiente" }).getCount() };
+  }
+
+  /** INSERT ... SELECT en vez de traer los ids a Node: sin filtros la vista "pendiente" puede tener
+   * >150k imágenes. La nota fija permite deshacer el lote a mano (`delete ... where nota = ...`),
+   * porque `origen` sigue siendo 'manual' igual que el botón "Descartar" de cada imagen. */
+  async descartarPendientes(filtros: FiltrosDescartarPendientes): Promise<ResultadoDescartarPendientes> {
+    const [sqlPendientes, parametros] = this.construirQueryBase({ ...filtros, vista: "pendiente" })
+      .select("imagen.id", "id")
+      .getQueryAndParameters();
+    const n = parametros.length;
+    const filas: unknown[] = await this.repositorioEtiquetas.query(
+      `insert into etiqueta_imagen (imagen_id, tipo_clave, origen, nota)
+       select pendientes.id, $${n + 1}, 'manual', $${n + 2} from (${sqlPendientes}) pendientes
+       on conflict (imagen_id, tipo_clave) do nothing
+       returning imagen_id`,
+      [...parametros, CLAVE_DESCARTADA, NOTA_DESCARTE_EN_BLOQUE],
+    );
+    return { descartadas: filas.length };
   }
 
   private condicionRangoConfianza(filtros: FiltrosAceptarPorConfianza): { sql: string; params: Record<string, unknown> } {

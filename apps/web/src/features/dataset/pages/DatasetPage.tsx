@@ -8,6 +8,7 @@ import { UkoFilterPanel } from "@/shared/componentes/filters";
 import { UkoTabs } from "@/shared/componentes/tabs";
 
 import { BotonAceptarTodas } from "../components/BotonAceptarTodas";
+import { BotonDescartarTodas } from "../components/BotonDescartarTodas";
 import { GaleriaImagenes } from "../components/GaleriaImagenes";
 import { PanelAceptarPorConfianza } from "../components/PanelAceptarPorConfianza";
 import { PanelDescartarPorForma } from "../components/PanelDescartarPorForma";
@@ -227,6 +228,20 @@ export function DatasetPage() {
                 <Typography variant="caption" color="text.secondary">
                   Viendo imagen {indiceVisible || Math.min(1, imagenes.length)} de {total.toLocaleString("es-CL")}
                 </Typography>
+                {filtros.vista === "pendiente" && (
+                  <BotonDescartarTodas
+                    filtros={{
+                      planta: filtros.planta || undefined,
+                      fechaDesde: filtros.fechaDesde || undefined,
+                      fechaHasta: filtros.fechaHasta || undefined,
+                      etiqueta: filtros.etiquetaFiltro || undefined,
+                      confianzaMin: filtros.confianzaMin,
+                      confianzaMax: filtros.confianzaMax,
+                      confianzaClase: filtros.confianzaMin !== undefined ? CLASE_PATENTE : undefined,
+                    }}
+                    onAplicado={resetearGaleria}
+                  />
+                )}
                 <BotonAceptarTodas
                   vista={filtros.vista}
                   planta={filtros.planta}

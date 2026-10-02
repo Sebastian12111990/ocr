@@ -28,3 +28,6 @@ backups/
 # Pesos de YOLO (se descargan solos) y salidas de detectar.py (CSVs, listas de selección)
 services/yolo/*.pt
 services/yolo/runs/
+
+# Override local de docker compose (imagen yolo restaurada, propia de cada PC)
+compose.override.yml

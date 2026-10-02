@@ -93,6 +93,8 @@ export interface FechaDataset {
   fecha: string;
   total: number;
   procesadas: number;
+  /** Ni aceptadas ni descartadas — mismo criterio que la pestaña "Pendiente". */
+  pendientes: number;
 }
 
 export interface ModeloDeteccion {
@@ -144,6 +146,26 @@ export interface PrevisualizacionAceptarTodas {
 
 export interface ResultadoAceptarTodas {
   actualizadas: number;
+}
+
+/** "Descartar todas": marca "Descartada" todas las imágenes de la vista "pendiente" con los
+ * mismos filtros que la galería. */
+export interface FiltrosDescartarPendientes {
+  planta?: string;
+  fechaDesde?: string;
+  fechaHasta?: string;
+  etiqueta?: string;
+  confianzaMin?: number;
+  confianzaMax?: number;
+  confianzaClase?: string;
+}
+
+export interface PrevisualizacionDescartarPendientes {
+  candidatos: number;
+}
+
+export interface ResultadoDescartarPendientes {
+  descartadas: number;
 }
 
 /** "Descartar por forma": marca 'falso_positivo' en bloque las cajas pendientes cuya relación

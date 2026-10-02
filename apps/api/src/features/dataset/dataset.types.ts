@@ -115,6 +115,13 @@ export interface ResultadoCargaDetecciones {
 export type EstadoProceso = "inactivo" | "corriendo" | "cargando" | "listo" | "error";
 
 /** Estado del único job de procesamiento en curso — herramienta de un solo usuario, un job a la vez. */
+export interface FechaDataset {
+  fecha: string;
+  total: number;
+  procesadas: number;
+  pendientes: number;
+}
+
 export interface EstadoProcesamiento {
   estado: EstadoProceso;
   planta: string | null;
@@ -178,6 +185,27 @@ export interface PrevisualizacionAceptarTodas {
 
 export interface ResultadoAceptarTodas {
   actualizadas: number;
+}
+
+/** "Descartar todas": marca "Descartada" en bloque las imágenes de la vista "pendiente" (ni
+ * aceptadas ni descartadas) con los mismos filtros que la galería — equivalente a apretar
+ * "Descartar" en cada una. */
+export interface FiltrosDescartarPendientes {
+  planta?: string;
+  fechaDesde?: string;
+  fechaHasta?: string;
+  etiqueta?: string;
+  confianzaMin?: number;
+  confianzaMax?: number;
+  confianzaClase?: string;
+}
+
+export interface PrevisualizacionDescartarPendientes {
+  candidatos: number;
+}
+
+export interface ResultadoDescartarPendientes {
+  descartadas: number;
 }
 
 /** "Descartar por forma": marca 'falso_positivo' en bloque las cajas pendientes cuya relación
